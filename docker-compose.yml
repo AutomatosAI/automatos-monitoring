@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # ====================
+  # REDIS - SINGLE INSTANCE FOR ALL SERVICES
+  # ====================
+  
+  redis:
+    image: redis:7-alpine
+    container_name: xplaincrypto-redis
+    command: >
+      redis-server 
+      --requirepass "redis_secure_pass_dev123"
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --databases 16
+    volumes:
+      - redis_data:/data
+    networks:
+      - xplaincrypto_network
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "redis_secure_pass_dev123", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # ====================
+  # MONITORING STACK
+  # ====================
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: xplaincrypto-prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=30d'
+    ports:
+      - "9090:9090"
+    networks:
+      - xplaincrypto_network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: xplaincrypto-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: grafana_admin_dev123
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,redis-datasource
+      GF_USERS_ALLOW_SIGN_UP: false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    ports:
+      - "3000:3000"
+    networks:
+      - xplaincrypto_network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ====================
+  # EXPORTERS FOR MONITORING
+  # ====================
+  
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: xplaincrypto-redis-exporter
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: redis_secure_pass_dev123
+    ports:
+      - "9121:9121"
+    networks:
+      - xplaincrypto_network
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: xplaincrypto-node-exporter
+    command:
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro
+    ports:
+      - "9100:9100"
+    networks:
+      - xplaincrypto_network
+    restart: unless-stopped
+
+# ====================
+# VOLUMES
+# ====================
+
+volumes:
+  redis_data:
+    driver: local
+    name: xplaincrypto_redis_data
+  prometheus_data:
+    driver: local
+    name: xplaincrypto_prometheus_data
+  grafana_data:
+    driver: local
+    name: xplaincrypto_grafana_data
+
+# ====================
+# NETWORKS - SHARED WITH ALL OTHER REPOS
+# ====================
+
+networks:
+  xplaincrypto_network:
+    driver: bridge
+    name: xplaincrypto_network 

@@ -1,0 +1,42 @@
+apiVersion: 1
+
+datasources:
+  # Prometheus for metrics
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+
+  # PostgreSQL for crypto data
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: mindsdb_dev
+    user: mindsdb
+    secureJsonData:
+      password: "${POSTGRES_PASSWORD}"
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 0
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    editable: true
+
+  # Redis for cache metrics
+  - name: Redis
+    type: redis-datasource
+    access: proxy
+    url: redis://redis:6379
+    secureJsonData:
+      password: "${REDIS_PASSWORD}"
+    editable: true
+
+  # Loki for logs
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: true 

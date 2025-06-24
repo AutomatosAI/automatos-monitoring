@@ -1,0 +1,58 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      - alertmanager:9093
+
+rule_files:
+  - "rules/*.yml"
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+    - targets: ['localhost:9090']
+
+  - job_name: 'mindsdb'
+    static_configs:
+    - targets: ['mindsdb:47336']
+
+  - job_name: 'fastapi'
+    static_configs:
+    - targets: ['fastapi:8000']
+    metrics_path: '/metrics'
+
+  - job_name: 'postgres-crypto'
+    static_configs:
+    - targets: ['postgres-exporter-crypto:9187']
+
+  - job_name: 'postgres-users'
+    static_configs:
+    - targets: ['postgres-exporter-users:9187']
+
+  - job_name: 'postgres-fastapi'
+    static_configs:
+    - targets: ['postgres-exporter-fastapi:9187']
+
+  - job_name: 'redis-mindsdb'
+    static_configs:
+    - targets: ['redis-exporter-mindsdb:9121']
+
+  - job_name: 'redis-sessions'
+    static_configs:
+    - targets: ['redis-exporter-sessions:9121']
+
+  - job_name: 'node'
+    static_configs:
+    - targets: ['node-exporter:9100']
+
+  - job_name: 'cadvisor'
+    static_configs:
+    - targets: ['cadvisor:8080']
+
+  - job_name: 'grafana'
+    static_configs:
+    - targets: ['grafana:3000']

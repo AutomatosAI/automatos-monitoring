@@ -1,0 +1,66 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # MindsDB application metrics
+  - job_name: 'mindsdb'
+    static_configs:
+      - targets: ['mindsdb:47336']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # MindsDB HTTP API health
+  - job_name: 'mindsdb-api'
+    static_configs:
+      - targets: ['mindsdb:47334']
+    metrics_path: '/api/status'
+    scrape_interval: 30s
+
+  # System metrics via node-exporter
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # PostgreSQL metrics
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # Redis metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # Nginx metrics (if available)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:9113']
+
+  # Grafana metrics
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: '/metrics'
+
+  # Custom crypto platform metrics
+  - job_name: 'crypto-platform'
+    static_configs:
+      - targets: ['mindsdb:47334']
+    metrics_path: '/api/metrics'
+    scrape_interval: 60s 

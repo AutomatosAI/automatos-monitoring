@@ -1,0 +1,189 @@
+groups:
+  - name: xplaincrypto-services
+    interval: 30s
+    rules:
+      # Service availability alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 2 minutes."
+
+      # Database alerts
+      - alert: DatabaseConnectionsHigh
+        expr: pg_stat_database_numbackends > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "High number of database connections"
+          description: "Database {{ $labels.datname }} has {{ $value }} active connections (threshold: 80)"
+
+      - alert: DatabaseResponseTimeSlow
+        expr: pg_stat_database_blks_hit / (pg_stat_database_blks_hit + pg_stat_database_blks_read) < 0.9
+        for: 10m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Database cache hit ratio low"
+          description: "Database {{ $labels.datname }} has cache hit ratio of {{ $value | humanizePercentage }}"
+
+      # System resource alerts
+      - alert: HighCPUUsage
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value | humanize }}% on {{ $labels.instance }}"
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value | humanize }}% on {{ $labels.instance }}"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Low disk space"
+          description: "Only {{ $value | humanize }}% disk space remaining on {{ $labels.instance }}"
+
+  - name: xplaincrypto-ai-agents
+    interval: 30s
+    rules:
+      # AI Agent performance alerts
+      - alert: AIAgentHighErrorRate
+        expr: |
+          (sum(rate(mindsdb_agent_requests_failed_total[5m])) by (agent) / 
+           sum(rate(mindsdb_agent_requests_total[5m])) by (agent)) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: ai
+        annotations:
+          summary: "High error rate for AI agent {{ $labels.agent }}"
+          description: "AI agent {{ $labels.agent }} has error rate of {{ $value | humanizePercentage }}"
+
+      - alert: AIAgentSlowResponse
+        expr: |
+          histogram_quantile(0.95, sum by (agent, le) (rate(mindsdb_agent_response_time_bucket[5m]))) > 5000
+        for: 10m
+        labels:
+          severity: warning
+          team: ai
+        annotations:
+          summary: "Slow response time for AI agent {{ $labels.agent }}"
+          description: "95th percentile response time for {{ $labels.agent }} is {{ $value | humanizeDuration }}"
+
+      - alert: AIAgentNotResponding
+        expr: sum(rate(mindsdb_agent_requests_total[5m])) by (agent) == 0
+        for: 15m
+        labels:
+          severity: critical
+          team: ai
+        annotations:
+          summary: "AI agent {{ $labels.agent }} not processing requests"
+          description: "No requests processed by {{ $labels.agent }} in the last 15 minutes"
+
+  - name: xplaincrypto-api
+    interval: 30s
+    rules:
+      # API performance alerts
+      - alert: APIHighErrorRate
+        expr: |
+          (sum(rate(fastapi_requests_failed_total[5m])) / 
+           sum(rate(fastapi_requests_total[5m]))) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          team: api
+        annotations:
+          summary: "High API error rate"
+          description: "API error rate is {{ $value | humanizePercentage }}"
+
+      - alert: APIHighLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(fastapi_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+          team: api
+        annotations:
+          summary: "High API latency"
+          description: "95th percentile API latency is {{ $value | humanizeDuration }}"
+
+      # Rate limit alerts
+      - alert: APIRateLimitExceeded
+        expr: sum(increase(fastapi_rate_limit_exceeded_total[1h])) > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: api
+        annotations:
+          summary: "API rate limits being exceeded"
+          description: "{{ $value }} rate limit violations in the last hour"
+
+  - name: xplaincrypto-data-sync
+    interval: 30s
+    rules:
+      # Data synchronization alerts
+      - alert: DataSyncFailed
+        expr: increase(data_sync_failures_total[1h]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          team: data
+        annotations:
+          summary: "Data sync failures for {{ $labels.source }}"
+          description: "{{ $value }} sync failures for {{ $labels.source }} in the last hour"
+
+      - alert: DataSyncDelayed
+        expr: (time() - data_sync_last_success_timestamp) > 3600
+        for: 5m
+        labels:
+          severity: warning
+          team: data
+        annotations:
+          summary: "Data sync delayed for {{ $labels.source }}"
+          description: "Last successful sync for {{ $labels.source }} was {{ $value | humanizeDuration }} ago"
+
+  - name: xplaincrypto-business
+    interval: 30s
+    rules:
+      # Business metrics alerts
+      - alert: LowActiveUsers
+        expr: active_users_count < 10
+        for: 30m
+        labels:
+          severity: info
+          team: business
+        annotations:
+          summary: "Low number of active users"
+          description: "Only {{ $value }} active users in the last 30 minutes"
+
+      - alert: HighAPIUsageCost
+        expr: sum(increase(api_calls_total[24h])) by (provider) > 10000
+        for: 5m
+        labels:
+          severity: warning
+          team: business
+        annotations:
+          summary: "High API usage for {{ $labels.provider }}"
+          description: "{{ $value }} API calls to {{ $labels.provider }} in the last 24 hours" 
