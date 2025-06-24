@@ -1,0 +1,8 @@
+
+# NEVER COMMIT SECRETS
+secrets/
+*.key
+*.pem
+*.txt
+.env
+.env.*
