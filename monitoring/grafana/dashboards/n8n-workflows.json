@@ -1,0 +1,132 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "n8n Workflow Monitoring",
+    "tags": ["n8n", "workflows", "automation"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Workflow Execution Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(n8n_workflow_executions_total[5m])",
+            "legendFormat": "{{workflow_name}} - {{status}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "reqps"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Workflow Success Rate (%)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "n8n_workflow_success_rate",
+            "legendFormat": "{{workflow_name}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 80},
+                {"color": "green", "value": 95}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Average Execution Duration",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "n8n_workflow_duration_seconds",
+            "legendFormat": "{{workflow_name}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Workflow Executions by Status",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "n8n_workflow_executions_total",
+            "legendFormat": "{{workflow_name}} - {{status}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"}
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 5,
+        "title": "Error Count by Type",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "n8n_workflow_errors_total",
+            "legendFormat": "{{workflow_name}} - {{error_type}}",
+            "format": "table"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "n8n Service Health",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "n8n_up",
+            "legendFormat": "n8n Service"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "mappings": [
+              {"options": {"0": {"text": "DOWN"}}, "type": "value"},
+              {"options": {"1": {"text": "UP"}}, "type": "value"}
+            ],
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 4, "w": 24, "x": 0, "y": 24}
+      }
+    ],
+    "time": {"from": "now-1h", "to": "now"},
+    "refresh": "30s"
+  }
+} 
