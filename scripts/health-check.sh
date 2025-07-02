@@ -21,9 +21,9 @@ check_service() {
     fi
 }
 
-# Check Redis
+# Check Redis - Fixed command
 echo -n "Checking Redis... "
-if docker exec xplaincrypto-redis redis-cli --no-auth-warning -a redis_secure_pass_dev123 ping | grep -q PONG; then
+if docker-compose exec -T redis redis-cli --no-auth-warning -a redis_secure_pass_dev123 ping | grep -q PONG; then
     echo "✅ OK"
 else
     echo "❌ FAILED"
