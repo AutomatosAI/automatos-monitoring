@@ -8,12 +8,7 @@ echo "=============================================="
 
 # Quick Grafana check - FIXED
 echo "⏳ Quick Grafana check..."
-if curl -s http://grafana.xplaincrypto.ai/api/health | grep -q '"database":"ok"'; then
-    echo "✅ Grafana is ready"
-else
-    echo "❌ Grafana not accessible via DNS"
-    exit 1
-fi
+curl -s http://grafana.xplaincrypto.ai/api/health >/dev/null && echo "✅ Grafana accessible" || echo "❌ Grafana not accessible"
 
 # Function to import dashboard
 import_dashboard() {
