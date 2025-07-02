@@ -197,16 +197,45 @@ services:
 volumes:
   redis_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/xplaincrypto/redis
+      
   prometheus_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/xplaincrypto/prometheus
+      
   grafana_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/xplaincrypto/grafana
+      
   loki_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/xplaincrypto/loki
+      
   alertmanager_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/xplaincrypto/alertmanager
+      
   nginx_logs:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/xplaincrypto/nginx
 
 # ====================
 # NETWORKS - LOCAL (NOT EXTERNAL)
