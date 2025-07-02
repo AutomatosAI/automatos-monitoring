@@ -6,23 +6,16 @@ set -e
 echo "📊 Updating XplainCrypto Monitoring Dashboards"
 echo "=============================================="
 
-# Wait for Grafana to be ready - FIXED to use DNS
-echo "⏳ Waiting for Grafana to be ready..."
-timeout=60
-count=0
-until curl -s http://grafana.xplaincrypto.ai/api/health | grep -q '"database":"ok"'; do
-    if [[ $count -ge $timeout ]]; then
-        echo "❌ Grafana did not become ready within $timeout seconds"
-        exit 1
-    fi
-    echo "  Waiting for Grafana... ($count/$timeout)"
-    sleep 5
-    ((count += 5))
-done
+# Quick Grafana check - FIXED
+echo "⏳ Quick Grafana check..."
+if curl -s http://grafana.xplaincrypto.ai/api/health | grep -q '"database":"ok"'; then
+    echo "✅ Grafana is ready"
+else
+    echo "❌ Grafana not accessible via DNS"
+    exit 1
+fi
 
-echo "✅ Grafana is ready"
-
-# Function to import dashboard - FIXED to use DNS
+# Function to import dashboard
 import_dashboard() {
     local dashboard_file="$1"
     local dashboard_name=$(basename "$dashboard_file" .json)
@@ -55,7 +48,7 @@ EOF
     fi
 }
 
-# Create custom folder for XplainCrypto dashboards - FIXED to use DNS
+# Create custom folder for XplainCrypto dashboards
 echo ""
 echo "📁 Creating XplainCrypto folder..."
 folder_payload='{"title":"XplainCrypto","uid":"xplaincrypto"}'
@@ -88,11 +81,6 @@ for dashboard_file in "${dashboard_files[@]}"; do
     fi
 done
 
-# Set up dashboard refresh intervals via API
-echo ""
-echo "⚙️ Configuring dashboard settings..."
-
-# Create dashboard list - FIXED to use DNS
 echo ""
 echo "📋 Available Dashboards:"
 echo "  🏗️  Infrastructure Testing: http://grafana.xplaincrypto.ai/d/infrastructure-testing"

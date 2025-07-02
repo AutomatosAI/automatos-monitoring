@@ -21,26 +21,13 @@ else
     echo "✅ Infrastructure already running"
 fi
 
-# Step 2: Wait for services to be ready - FIXED to use DNS
+# Step 2: Quick Grafana check - FIXED
 echo ""
-echo "⏳ Step 2: Waiting for Services"
-echo "Waiting for Grafana to be fully ready..."
-timeout=60
-count=0
-until curl -s http://grafana.xplaincrypto.ai/api/health 2>/dev/null | grep -q '"database":"ok"'; do
-    if [[ $count -ge $timeout ]]; then
-        echo "⚠️ Grafana taking longer than expected, but continuing..."
-        break
-    fi
-    echo "  Waiting for Grafana... ($count/$timeout)"
-    sleep 5
-    ((count += 5))
-done
-
-if curl -s http://grafana.xplaincrypto.ai/api/health 2>/dev/null | grep -q '"database":"ok"'; then
+echo "⏳ Step 2: Quick Grafana Check"
+if curl -s http://grafana.xplaincrypto.ai/api/health | grep -q '"database":"ok"'; then
     echo "✅ Grafana is ready"
 else
-    echo "⚠️ Grafana may need more time, but proceeding..."
+    echo "⚠️ Grafana may need a moment, but continuing..."
 fi
 
 # Step 3: Update dashboards

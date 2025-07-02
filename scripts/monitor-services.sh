@@ -21,11 +21,11 @@ end_time=$((start_time + MONITOR_DURATION))
 while [[ $(date +%s) -lt $end_time ]]; do
     timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     
-    # Check service statuses
+    # Check service statuses - FIXED TO USE DNS
     redis_status=$(docker exec xplaincrypto-redis redis-cli --no-auth-warning -a "redis_secure_pass_dev123" ping 2>/dev/null | grep -q "PONG" && echo "UP" || echo "DOWN")
-    grafana_status=$(curl -s http://localhost:3000/api/health | grep -q '"database":"ok"' && echo "UP" || echo "DOWN")
-    prometheus_status=$(curl -s http://localhost:9090/-/healthy | grep -q "Prometheus is Healthy" && echo "UP" || echo "DOWN")
-    alertmanager_status=$(curl -s http://localhost:9093/-/healthy | grep -q "Alertmanager is Healthy" && echo "UP" || echo "DOWN")
+    grafana_status=$(curl -s http://grafana.xplaincrypto.ai/api/health | grep -q '"database":"ok"' && echo "UP" || echo "DOWN")
+    prometheus_status=$(curl -s http://prometheus.xplaincrypto.ai/-/healthy | grep -q "Prometheus is Healthy" && echo "UP" || echo "DOWN")
+    alertmanager_status=$(curl -s http://alerts.xplaincrypto.ai/-/healthy | grep -q "Alertmanager is Healthy" && echo "UP" || echo "DOWN")
     nginx_status=$(curl -s http://localhost/health | grep -q "healthy" && echo "UP" || echo "DOWN")
     
     # Get system metrics
