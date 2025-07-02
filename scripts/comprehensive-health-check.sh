@@ -65,7 +65,7 @@ test_container() {
 test_redis() {
     echo -n "Testing Redis connection... "
     
-    if docker exec xplaincrypto-redis redis-cli --no-auth-warning -a "redis_secure_pass_dev123" ping 2>/dev/null | grep -q "PONG"; then
+    if docker exec xplaincrypto-redis redis-cli -h localhost -p 6379 -a redis_secure_pass_dev123 ping 2>/dev/null | grep -q "PONG"; then
         echo -e "${GREEN}✅${NC}"
         results["redis"]="healthy"
         
@@ -73,7 +73,7 @@ test_redis() {
         echo -n "Testing Redis databases... "
         db_count=0
         for db in {0..3}; do
-            if docker exec xplaincrypto-redis redis-cli --no-auth-warning -a "redis_secure_pass_dev123" -n "$db" ping 2>/dev/null | grep -q "PONG"; then
+            if docker exec xplaincrypto-redis redis-cli -h localhost -p 6379 -a redis_secure_pass_dev123 -n "$db" ping 2>/dev/null | grep -q "PONG"; then
                 ((db_count++))
             fi
         done
