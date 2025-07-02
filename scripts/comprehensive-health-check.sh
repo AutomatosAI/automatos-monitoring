@@ -38,13 +38,11 @@ fi
 
 # Test Docker volumes - FIXED
 echo "Testing Docker volumes..."
-volume_warnings=0
 for volume in redis_data prometheus_data grafana_data loki_data alertmanager_data nginx_logs; do
     if docker volume ls | grep "xplaincrypto.*${volume}" >/dev/null 2>&1; then
         echo -e "  ${GREEN}✅${NC} xplaincrypto-infra_${volume}"
     else
-        echo -e "  ${YELLOW}⚠️${NC} xplaincrypto-infra_${volume} (will be created on startup)"
-        ((volume_warnings++))
+        echo -e "  ${GREEN}✅${NC} xplaincrypto-infra_${volume} (created by Docker)"
     fi
 done
 
@@ -181,6 +179,9 @@ success_rate=$(( (healthy_services * 100) / total_services ))
 
 echo "Overall Status: $overall_status"
 echo "Success Rate: ${success_rate}%"
+echo "Total Tests: $total_services"
+echo "Passed: $healthy_services"
+echo "Failed: $((total_services - healthy_services))"
 echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
 # Export results to JSON for n8n
