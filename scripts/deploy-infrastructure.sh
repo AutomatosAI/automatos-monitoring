@@ -12,6 +12,18 @@ cd "$PROJECT_DIR"
 echo "🚀 XplainCrypto Infrastructure Automated Deployment"
 echo "=================================================="
 
+# Detect Docker Compose command - FIXED
+if command -v docker-compose >/dev/null 2>&1; then
+    DOCKER_COMPOSE="docker-compose"
+    echo "Using legacy Docker Compose: docker-compose"
+elif docker compose version >/dev/null 2>&1; then
+    DOCKER_COMPOSE="docker compose"
+    echo "Using new Docker Compose: docker compose"
+else
+    echo "❌ No Docker Compose found"
+    exit 1
+fi
+
 # Step 1: Validate environment
 echo ""
 echo "📋 Step 1: Environment Validation"
@@ -32,7 +44,7 @@ else
     exit 1
 fi
 
-# Step 3: Check for existing containers
+# Step 3: Check for existing containers - FIXED
 echo ""
 echo "🐳 Step 3: Container Cleanup"
 existing_containers=$(docker ps -a --format "{{.Names}}" | grep "xplaincrypto-" || true)
@@ -46,7 +58,7 @@ if [[ -n "$existing_containers" ]]; then
     
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "🧹 Removing existing containers..."
-        docker-compose down -v --remove-orphans 2>/dev/null || true
+        $DOCKER_COMPOSE down -v --remove-orphans 2>/dev/null || true
         
         # Force remove any remaining containers
         echo "$existing_containers" | while read container; do
@@ -63,12 +75,12 @@ else
     echo "✅ No existing containers found"
 fi
 
-# Step 4: Deploy infrastructure
+# Step 4: Deploy infrastructure - FIXED
 echo ""
 echo "🚀 Step 4: Infrastructure Deployment"
 echo "Starting Docker Compose deployment..."
 
-if docker-compose up -d; then
+if $DOCKER_COMPOSE up -d; then
     echo "✅ Docker Compose deployment successful"
 else
     echo "❌ Docker Compose deployment failed"

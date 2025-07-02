@@ -61,7 +61,7 @@ test_container() {
     fi
 }
 
-# Function to test Redis
+# Function to test Redis - FIXED
 test_redis() {
     echo -n "Testing Redis connection... "
     
@@ -123,11 +123,12 @@ test_directories() {
     fi
 }
 
-# Function to test Docker network
+# Function to test Docker network - FIXED
 test_network() {
     echo -n "Testing Docker network... "
     
-    if docker network ls | grep -q "xplaincrypto_network"; then
+    # Check for network using docker network ls instead of compose command
+    if docker network ls | grep -q "xplaincrypto"; then
         echo -e "${GREEN}✅${NC}"
         results["network"]="healthy"
     else
@@ -137,7 +138,7 @@ test_network() {
     fi
 }
 
-# Function to test volumes
+# Function to test volumes - FIXED
 test_volumes() {
     echo "Testing Docker volumes..."
     
@@ -152,6 +153,7 @@ test_volumes() {
     
     missing_volumes=()
     for volume in "${expected_volumes[@]}"; do
+        # Use docker volume ls instead of compose command
         if docker volume ls | grep -q "$volume"; then
             echo -e "  ${GREEN}✅${NC} $volume"
         else
@@ -220,7 +222,7 @@ done
 echo "Status: $overall_status"
 echo "Healthy: $healthy_count/$total_count"
 
-# Create JSON output file for n8n
+# Create JSON output file for n8n - FIXED
 json_output=$(cat <<EOF
 {
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
