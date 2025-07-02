@@ -1,41 +1,9 @@
 #!/bin/bash
-# XplainCrypto Infrastructure Health Check
+# Simple health check for n8n monitoring
 
-echo "🔍 XplainCrypto Infrastructure Health Check"
-echo "========================================="
+# Test core services
+redis_status=$(docker-compose exec -T redis redis-cli --no-auth-warning -a redis_secure_pass_dev123 ping 2>/dev/null | grep -q PONG && echo "✅" || echo "❌")
+grafana_status=$(curl -s http://localhost:3000/api/health | grep -q '"database":"ok"' && echo "✅" || echo "❌")
+prometheus_status=$(curl -s http://localhost:9090/-/healthy | grep -q "Prometheus is Healthy" && echo "✅" || echo "❌")
 
-# Function to check service health
-check_service() {
-    local service_name=$1
-    local url=$2
-    local expected_code=${3:-200}
-    
-    echo -n "Checking $service_name... "
-    
-    if curl -s -o /dev/null -w "%{http_code}" "$url" | grep -q "$expected_code"; then
-        echo "✅ OK"
-        return 0
-    else
-        echo "❌ FAILED"
-        return 1
-    fi
-}
-
-# Check Redis - Fixed command
-echo -n "Checking Redis... "
-if docker-compose exec -T redis redis-cli --no-auth-warning -a redis_secure_pass_dev123 ping | grep -q PONG; then
-    echo "✅ OK"
-else
-    echo "❌ FAILED"
-fi
-
-# Check web services
-check_service "Prometheus" "http://localhost:9090/-/healthy"
-check_service "Grafana" "http://localhost:3000/api/health"
-check_service "AlertManager" "http://localhost:9093/-/healthy"
-check_service "Node Exporter" "http://localhost:9100/metrics"
-check_service "Redis Exporter" "http://localhost:9121/metrics"
-check_service "Pushgateway" "http://localhost:9091/metrics"
-
-echo ""
-echo "Health check complete!"
+echo "Redis: $redis_status | Grafana: $grafana_status | Prometheus: $prometheus_status"

@@ -2,8 +2,10 @@ auth_enabled: false
 
 server:
   http_listen_port: 3100
+  grpc_listen_port: 9096
 
 common:
+  instance_addr: 127.0.0.1
   path_prefix: /loki
   storage:
     filesystem:
@@ -11,9 +13,15 @@ common:
       rules_directory: /loki/rules
   replication_factor: 1
   ring:
-    instance_addr: 127.0.0.1
     kvstore:
       store: inmemory
+
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
 
 schema_config:
   configs:
@@ -29,18 +37,30 @@ storage_config:
   boltdb_shipper:
     active_index_directory: /loki/boltdb-shipper-active
     cache_location: /loki/boltdb-shipper-cache
-    shared_store: filesystem
+    cache_ttl: 24h
+  filesystem:
+    directory: /loki/chunks
 
 limits_config:
   retention_period: 168h
   ingestion_rate_mb: 16
   ingestion_burst_size_mb: 24
+  max_query_time: 12h
+  max_streams_per_user: 10000
 
 chunk_store_config:
   max_look_back_period: 168h
 
 ruler:
   alertmanager_url: http://alertmanager:9093
+  ring:
+    kvstore:
+      store: inmemory
+  rule_path: /loki/rules
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
 
 # By default, Loki will send anonymous, but uniquely-identifiable usage and configuration
 # analytics to Grafana Labs. These statistics are sent to https://stats.grafana.org/
@@ -51,5 +71,5 @@ ruler:
 # Refer to the buildReport method to see what goes into a report.
 #
 # If you would like to disable reporting, uncomment the following lines:
-#analytics:
-#  reporting_enabled: false 
+analytics:
+  reporting_enabled: false 
