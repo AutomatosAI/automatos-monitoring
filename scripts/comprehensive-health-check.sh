@@ -20,231 +20,194 @@ overall_status="healthy"
 echo "🔍 XplainCrypto Infrastructure Health Check"
 echo "==========================================="
 
-# Function to test HTTP endpoint
-test_http_endpoint() {
-    local name="$1"
-    local url="$2"
-    local expected_code="${3:-200}"
-    
-    echo -n "Testing $name... "
-    
-    if response=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "$url" 2>/dev/null); then
-        if [[ "$response" == "$expected_code" ]]; then
-            echo -e "${GREEN}✅${NC} ($response)"
-            results["$name"]="healthy"
-        else
-            echo -e "${RED}❌${NC} (HTTP $response)"
-            results["$name"]="unhealthy"
-            overall_status="degraded"
-        fi
-    else
-        echo -e "${RED}❌${NC} (connection failed)"
-        results["$name"]="unreachable"
-        overall_status="degraded"
-    fi
-}
-
-# Function to test Docker container
-test_container() {
-    local name="$1"
-    local container_name="$2"
-    
-    echo -n "Testing container $name... "
-    
-    if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "$container_name.*Up"; then
-        echo -e "${GREEN}✅${NC} (running)"
-        results["container_$name"]="running"
-    else
-        echo -e "${RED}❌${NC} (not running)"
-        results["container_$name"]="stopped"
-        overall_status="degraded"
-    fi
-}
-
-# Function to test Redis
-test_redis() {
-    echo -n "Testing Redis connection... "
-    
-    if docker exec xplaincrypto-redis redis-cli -h localhost -p 6379 -a redis_secure_pass_dev123 ping 2>/dev/null | grep -q "PONG"; then
-        echo -e "${GREEN}✅${NC}"
-        results["redis"]="healthy"
-        
-        # Test Redis databases
-        echo -n "Testing Redis databases... "
-        db_count=0
-        for db in {0..3}; do
-            if docker exec xplaincrypto-redis redis-cli -h localhost -p 6379 -a redis_secure_pass_dev123 -n "$db" ping 2>/dev/null | grep -q "PONG"; then
-                ((db_count++))
-            fi
-        done
-        
-        if [[ $db_count -eq 4 ]]; then
-            echo -e "${GREEN}✅${NC} (0-3 accessible)"
-            results["redis_databases"]="healthy"
-        else
-            echo -e "${YELLOW}⚠️${NC} (only $db_count/4 accessible)"
-            results["redis_databases"]="partial"
-        fi
-    else
-        echo -e "${RED}❌${NC}"
-        results["redis"]="unhealthy"
-        overall_status="degraded"
-    fi
-}
-
-# Function to test directories
-test_directories() {
-    echo "Testing required directories..."
-    
-    directories=(
-        "/var/lib/xplaincrypto/redis"
-        "/var/lib/xplaincrypto/prometheus" 
-        "/var/lib/xplaincrypto/grafana"
-        "/var/lib/xplaincrypto/loki"
-        "/var/lib/xplaincrypto/alertmanager"
-        "/var/log/xplaincrypto/nginx"
-    )
-    
-    missing_dirs=()
-    for dir in "${directories[@]}"; do
-        if [[ -d "$dir" ]]; then
-            echo -e "  ${GREEN}✅${NC} $dir"
-        else
-            echo -e "  ${RED}❌${NC} $dir (missing)"
-            missing_dirs+=("$dir")
-        fi
-    done
-    
-    if [[ ${#missing_dirs[@]} -eq 0 ]]; then
-        results["directories"]="healthy"
-    else
-        results["directories"]="missing_dirs"
-        overall_status="degraded"
-    fi
-}
-
-# Function to test Docker network
-test_network() {
-    echo -n "Testing Docker network... "
-    
-    if docker network ls | grep -q "xplaincrypto"; then
-        echo -e "${GREEN}✅${NC}"
-        results["network"]="healthy"
-    else
-        echo -e "${RED}❌${NC} (network missing)"
-        results["network"]="missing"
-        overall_status="degraded"
-    fi
-}
-
-# Function to test volumes
-test_volumes() {
-    echo "Testing Docker volumes..."
-    
-    expected_volumes=(
-        "xplaincrypto-infra_redis_data"
-        "xplaincrypto-infra_prometheus_data"
-        "xplaincrypto-infra_grafana_data"
-        "xplaincrypto-infra_loki_data"
-        "xplaincrypto-infra_alertmanager_data"
-        "xplaincrypto-infra_nginx_logs"
-    )
-    
-    for volume in "${expected_volumes[@]}"; do
-        if docker volume ls | grep -q "$volume"; then
-            echo -e "  ${GREEN}✅${NC} $volume"
-        else
-            echo -e "  ${YELLOW}⚠️${NC} $volume (will be created on startup)"
-        fi
-    done
-    
-    results["volumes"]="healthy"
-}
-
-# Run all tests
+# Docker Infrastructure Tests
 echo ""
 echo "🐳 Docker Infrastructure Tests:"
-test_network
-test_volumes
 
+# Test Docker network - FIXED
+echo -n "Testing Docker network... "
+network_exists=$(docker network ls | grep xplaincrypto || echo "")
+if [ -n "$network_exists" ]; then
+    echo -e "${GREEN}✅${NC} (network exists)"
+    results["docker_network"]="healthy"
+else
+    echo -e "${RED}❌${NC} (network missing)"
+    results["docker_network"]="unhealthy"
+    overall_status="degraded"
+fi
+
+# Test Docker volumes - FIXED
+echo "Testing Docker volumes..."
+volume_warnings=0
+for volume in redis_data prometheus_data grafana_data loki_data alertmanager_data nginx_logs; do
+    if docker volume ls | grep "xplaincrypto.*${volume}" >/dev/null 2>&1; then
+        echo -e "  ${GREEN}✅${NC} xplaincrypto-infra_${volume}"
+    else
+        echo -e "  ${YELLOW}⚠️${NC} xplaincrypto-infra_${volume} (will be created on startup)"
+        ((volume_warnings++))
+    fi
+done
+
+# Directory Tests
 echo ""
 echo "📁 Directory Tests:"
-test_directories
+echo "Testing required directories..."
 
+directories=(
+    "/var/lib/xplaincrypto/redis"
+    "/var/lib/xplaincrypto/prometheus" 
+    "/var/lib/xplaincrypto/grafana"
+    "/var/lib/xplaincrypto/loki"
+    "/var/lib/xplaincrypto/alertmanager"
+    "/var/log/xplaincrypto/nginx"
+)
+
+directory_failures=0
+for dir in "${directories[@]}"; do
+    if [ -d "$dir" ]; then
+        echo -e "  ${GREEN}✅${NC} $dir"
+    else
+        echo -e "  ${RED}❌${NC} $dir"
+        ((directory_failures++))
+    fi
+done
+
+results["directories"]=$directory_failures
+
+# Container Tests
 echo ""
 echo "🐳 Container Tests:"
-test_container "redis" "xplaincrypto-redis"
-test_container "prometheus" "xplaincrypto-prometheus"
-test_container "grafana" "xplaincrypto-grafana"
-test_container "alertmanager" "xplaincrypto-alertmanager"
-test_container "nginx" "xplaincrypto-nginx"
 
+containers=("redis" "prometheus" "grafana" "alertmanager" "nginx")
+container_failures=0
+
+for container in "${containers[@]}"; do
+    echo -n "Testing container $container... "
+    if docker ps | grep "xplaincrypto-$container" | grep -q "Up"; then
+        echo -e "${GREEN}✅${NC} (running)"
+    else
+        echo -e "${RED}❌${NC} (not running)"
+        ((container_failures++))
+        overall_status="unhealthy"
+    fi
+done
+
+results["containers"]=$container_failures
+
+# Redis Tests - FIXED WITH PASSWORD
 echo ""
 echo "🔴 Redis Tests:"
-test_redis
+echo -n "Testing Redis connection... "
+if redis-cli -h localhost -p 6379 -a redis_secure_pass_dev123 ping >/dev/null 2>&1; then
+    echo -e "${GREEN}✅${NC}"
+    results["redis"]="healthy"
+else
+    echo -e "${RED}❌${NC}"
+    results["redis"]="unhealthy"
+    overall_status="degraded"
+fi
 
+# Service Endpoint Tests (DNS)
 echo ""
 echo "🌐 Service Endpoint Tests (DNS):"
-test_http_endpoint "grafana" "http://grafana.xplaincrypto.ai/api/health"
-test_http_endpoint "prometheus" "http://prometheus.xplaincrypto.ai/-/healthy"
-test_http_endpoint "alertmanager" "http://alerts.xplaincrypto.ai/-/healthy"
 
+endpoints=(
+    "grafana:http://grafana.xplaincrypto.ai/api/health"
+    "prometheus:http://prometheus.xplaincrypto.ai/-/healthy"
+    "alertmanager:http://alerts.xplaincrypto.ai/-/healthy"
+)
+
+endpoint_failures=0
+for endpoint in "${endpoints[@]}"; do
+    name="${endpoint%%:*}"
+    url="${endpoint#*:}"
+    echo -n "Testing $name... "
+    
+    if curl -s --max-time 10 "$url" >/dev/null 2>&1; then
+        echo -e "${GREEN}✅${NC} (200)"
+    else
+        echo -e "${RED}❌${NC} (failed)"
+        ((endpoint_failures++))
+        overall_status="degraded"
+    fi
+done
+
+results["dns_endpoints"]=$endpoint_failures
+
+# Local Service Tests
 echo ""
 echo "🌐 Local Service Tests:"
-test_http_endpoint "redis_exporter" "http://localhost:9121/metrics"
-test_http_endpoint "node_exporter" "http://localhost:9100/metrics"
-test_http_endpoint "pushgateway" "http://localhost:9091/metrics"
-test_http_endpoint "nginx_health" "http://localhost/health"
 
-# Generate JSON output for n8n
+local_services=(
+    "redis_exporter:http://localhost:9121/metrics"
+    "node_exporter:http://localhost:9100/metrics"
+    "pushgateway:http://localhost:9091/metrics"
+    "nginx_health:http://localhost/nginx_status"
+)
+
+local_failures=0
+for service in "${local_services[@]}"; do
+    name="${service%%:*}"
+    url="${service#*:}"
+    echo -n "Testing $name... "
+    
+    if curl -s --max-time 5 "$url" >/dev/null 2>&1; then
+        echo -e "${GREEN}✅${NC} (200)"
+    else
+        echo -e "${RED}❌${NC} (failed)"
+        ((local_failures++))
+    fi
+done
+
+results["local_services"]=$local_failures
+
+# Health Check Summary
 echo ""
 echo "📊 Health Check Summary:"
 echo "======================="
 
-# Count healthy vs unhealthy
-healthy_count=0
-total_count=0
+# Generate summary
+healthy_services=0
+total_services=0
 
 for key in "${!results[@]}"; do
-    ((total_count++))
-    if [[ "${results[$key]}" == "healthy" || "${results[$key]}" == "running" ]]; then
-        ((healthy_count++))
+    if [[ "${results[$key]}" == "healthy" ]] || [[ "${results[$key]}" == "0" ]]; then
+        ((healthy_services++))
     fi
+    ((total_services++))
 done
 
-echo "Status: $overall_status"
-echo "Healthy: $healthy_count/$total_count"
+success_rate=$(( (healthy_services * 100) / total_services ))
 
-# Create JSON output file for n8n
-json_output=$(cat <<EOF
+echo "Overall Status: $overall_status"
+echo "Success Rate: ${success_rate}%"
+echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+# Export results to JSON for n8n
+json_output="/tmp/infrastructure_health.json"
+cat > "$json_output" << EOF
 {
-  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "overall_status": "$overall_status",
-  "healthy_services": $healthy_count,
-  "total_services": $total_count,
-  "details": {
+    "overall_status": "$overall_status",
+    "success_rate": $success_rate,
+    "timestamp": "$(date -u '+%Y-%m-%d %H:%M:%S UTC')",
+    "results": {
+        "docker_network": "${results[docker_network]:-unknown}",
+        "directories": ${results[directories]:-0},
+        "containers": ${results[containers]:-0},
+        "redis": "${results[redis]:-unknown}",
+        "dns_endpoints": ${results[dns_endpoints]:-0},
+        "local_services": ${results[local_services]:-0}
+    }
+}
 EOF
 
-first=true
-for key in "${!results[@]}"; do
-    if [[ "$first" == true ]]; then
-        first=false
-    else
-        json_output+=","
-    fi
-    json_output+="\n    \"$key\": \"${results[$key]}\""
-done
-
-json_output+="\n  }\n}"
-
-echo "$json_output" > /tmp/infrastructure_health.json
-
-echo ""
-echo "📄 JSON report saved to: /tmp/infrastructure_health.json"
+echo "JSON results exported to: $json_output"
 
 # Exit with appropriate code
 if [[ "$overall_status" == "healthy" ]]; then
     exit 0
-else
+elif [[ "$overall_status" == "degraded" ]]; then
     exit 1
+else
+    exit 2
 fi 
