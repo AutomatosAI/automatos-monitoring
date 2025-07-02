@@ -6,11 +6,11 @@ set -e
 echo "📊 Updating XplainCrypto Monitoring Dashboards"
 echo "=============================================="
 
-# Wait for Grafana to be ready
+# Wait for Grafana to be ready - FIXED to use DNS
 echo "⏳ Waiting for Grafana to be ready..."
 timeout=60
 count=0
-until curl -s http://localhost:3000/api/health | grep -q '"database":"ok"'; do
+until curl -s http://grafana.xplaincrypto.ai/api/health | grep -q '"database":"ok"'; do
     if [[ $count -ge $timeout ]]; then
         echo "❌ Grafana did not become ready within $timeout seconds"
         exit 1
@@ -22,7 +22,7 @@ done
 
 echo "✅ Grafana is ready"
 
-# Function to import dashboard
+# Function to import dashboard - FIXED to use DNS
 import_dashboard() {
     local dashboard_file="$1"
     local dashboard_name=$(basename "$dashboard_file" .json)
@@ -41,12 +41,12 @@ import_dashboard() {
 EOF
 )
     
-    # Import dashboard via API
+    # Import dashboard via API using DNS
     response=$(curl -s -X POST \
         -H "Content-Type: application/json" \
         -u admin:grafana_admin_dev123 \
         -d "$import_payload" \
-        "http://localhost:3000/api/dashboards/import" 2>/dev/null || echo '{"status":"error"}')
+        "http://grafana.xplaincrypto.ai/api/dashboards/import" 2>/dev/null || echo '{"status":"error"}')
     
     if echo "$response" | grep -q '"status":"success"'; then
         echo "  ✅ Successfully imported $dashboard_name"
@@ -55,7 +55,7 @@ EOF
     fi
 }
 
-# Create custom folder for XplainCrypto dashboards
+# Create custom folder for XplainCrypto dashboards - FIXED to use DNS
 echo ""
 echo "📁 Creating XplainCrypto folder..."
 folder_payload='{"title":"XplainCrypto","uid":"xplaincrypto"}'
@@ -63,7 +63,7 @@ curl -s -X POST \
     -H "Content-Type: application/json" \
     -u admin:grafana_admin_dev123 \
     -d "$folder_payload" \
-    "http://localhost:3000/api/folders" 2>/dev/null || echo "Folder may already exist"
+    "http://grafana.xplaincrypto.ai/api/folders" 2>/dev/null || echo "Folder may already exist"
 
 # Import all dashboards
 echo ""
@@ -92,17 +92,16 @@ done
 echo ""
 echo "⚙️ Configuring dashboard settings..."
 
-# Create dashboard list
+# Create dashboard list - FIXED to use DNS
 echo ""
 echo "📋 Available Dashboards:"
-echo "  🏗️  Infrastructure Testing: http://localhost:3000/d/infrastructure-testing"
-echo "  🤖 n8n Workflow Execution: http://localhost:3000/d/n8n-workflow-execution"
-echo "  📊 Platform Status: http://localhost:3000/d/platform-status-comprehensive"
-echo "  ⭐ XplainCrypto Overview: http://localhost:3000/d/xplaincrypto-overview"
-echo "  🧠 AI Agents Performance: http://localhost:3000/d/ai-agents-performance"
-echo "  💰 Crypto Overview: http://localhost:3000/d/crypto-overview"
+echo "  🏗️  Infrastructure Testing: http://grafana.xplaincrypto.ai/d/infrastructure-testing"
+echo "  🤖 n8n Workflow Execution: http://grafana.xplaincrypto.ai/d/n8n-workflow-execution"
+echo "  📊 Platform Status: http://grafana.xplaincrypto.ai/d/platform-status-comprehensive"
+echo "  ⭐ XplainCrypto Overview: http://grafana.xplaincrypto.ai/d/xplaincrypto-overview"
+echo "  🧠 AI Agents Performance: http://grafana.xplaincrypto.ai/d/ai-agents-performance"
+echo "  💰 Crypto Overview: http://grafana.xplaincrypto.ai/d/crypto-overview"
 
 echo ""
 echo "✅ Dashboard updates completed"
-echo "🌍 Access Grafana: http://localhost:3000 (admin/grafana_admin_dev123)"
-echo "🔗 Or via DNS: http://grafana.xplaincrypto.ai" 
+echo "🌍 Access Grafana: http://grafana.xplaincrypto.ai (admin/grafana_admin_dev123)" 

@@ -21,13 +21,13 @@ else
     echo "✅ Infrastructure already running"
 fi
 
-# Step 2: Wait for services to be ready - FIXED timeout
+# Step 2: Wait for services to be ready - FIXED to use DNS
 echo ""
 echo "⏳ Step 2: Waiting for Services"
 echo "Waiting for Grafana to be fully ready..."
-timeout=60  # Reduced from 120
+timeout=60
 count=0
-until curl -s http://localhost:3000/api/health 2>/dev/null | grep -q '"database":"ok"'; do
+until curl -s http://grafana.xplaincrypto.ai/api/health 2>/dev/null | grep -q '"database":"ok"'; do
     if [[ $count -ge $timeout ]]; then
         echo "⚠️ Grafana taking longer than expected, but continuing..."
         break
@@ -37,7 +37,7 @@ until curl -s http://localhost:3000/api/health 2>/dev/null | grep -q '"database"
     ((count += 5))
 done
 
-if curl -s http://localhost:3000/api/health 2>/dev/null | grep -q '"database":"ok"'; then
+if curl -s http://grafana.xplaincrypto.ai/api/health 2>/dev/null | grep -q '"database":"ok"'; then
     echo "✅ Grafana is ready"
 else
     echo "⚠️ Grafana may need more time, but proceeding..."
@@ -48,7 +48,7 @@ echo ""
 echo "📊 Step 3: Dashboard Deployment"
 ./scripts/update-monitoring-dashboards.sh
 
-# Step 4: Setup enhanced metrics collection - FIXED
+# Step 4: Setup enhanced metrics collection
 echo ""
 echo "📈 Step 4: Enhanced Metrics Setup"
 if [[ -f "monitoring/enhanced-n8n-exporter.py" ]]; then
@@ -74,20 +74,20 @@ echo "🎉 Complete Monitoring Deployment Finished!"
 echo "=========================================="
 echo ""
 echo "📊 Access Your Dashboards:"
-echo "  🏗️ Infrastructure Testing:  http://localhost:3000/d/infrastructure-testing"
-echo "  🤖 n8n Workflow Execution: http://localhost:3000/d/n8n-workflow-execution"
-echo "  📈 Platform Status:        http://localhost:3000/d/platform-status-comprehensive"
-echo "  ⭐ XplainCrypto Overview:   http://localhost:3000/d/xplaincrypto-overview"
-echo "  🧠 AI Agents Performance:  http://localhost:3000/d/ai-agents-performance"
+echo "  🏗️ Infrastructure Testing:  http://grafana.xplaincrypto.ai/d/infrastructure-testing"
+echo "  🤖 n8n Workflow Execution: http://grafana.xplaincrypto.ai/d/n8n-workflow-execution"
+echo "  📈 Platform Status:        http://grafana.xplaincrypto.ai/d/platform-status-comprehensive"
+echo "  ⭐ XplainCrypto Overview:   http://grafana.xplaincrypto.ai/d/xplaincrypto-overview"
+echo "  🧠 AI Agents Performance:  http://grafana.xplaincrypto.ai/d/ai-agents-performance"
 echo ""
-echo "🌍 DNS Access (if configured):"
+echo "🌍 DNS Access:"
 echo "  Grafana:     http://grafana.xplaincrypto.ai"
 echo "  Prometheus:  http://prometheus.xplaincrypto.ai"
 echo "  Alerts:      http://alerts.xplaincrypto.ai"
 echo ""
 echo "🔧 Monitoring Services:"
-echo "  Prometheus:  http://localhost:9090"
-echo "  AlertManager: http://localhost:9093"
+echo "  Prometheus:  http://prometheus.xplaincrypto.ai"
+echo "  AlertManager: http://alerts.xplaincrypto.ai"
 echo "  Pushgateway: http://localhost:9091"
 echo ""
 echo "✅ All monitoring components are now active!" 

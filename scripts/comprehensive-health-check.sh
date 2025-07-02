@@ -61,7 +61,7 @@ test_container() {
     fi
 }
 
-# Function to test Redis - FIXED
+# Function to test Redis
 test_redis() {
     echo -n "Testing Redis connection... "
     
@@ -123,11 +123,10 @@ test_directories() {
     fi
 }
 
-# Function to test Docker network - FIXED
+# Function to test Docker network
 test_network() {
     echo -n "Testing Docker network... "
     
-    # Check for network using docker network ls instead of compose command
     if docker network ls | grep -q "xplaincrypto"; then
         echo -e "${GREEN}✅${NC}"
         results["network"]="healthy"
@@ -138,7 +137,7 @@ test_network() {
     fi
 }
 
-# Function to test volumes - FIXED
+# Function to test volumes
 test_volumes() {
     echo "Testing Docker volumes..."
     
@@ -151,9 +150,7 @@ test_volumes() {
         "xplaincrypto-infra_nginx_logs"
     )
     
-    missing_volumes=()
     for volume in "${expected_volumes[@]}"; do
-        # Use docker volume ls instead of compose command
         if docker volume ls | grep -q "$volume"; then
             echo -e "  ${GREEN}✅${NC} $volume"
         else
@@ -187,21 +184,17 @@ echo "🔴 Redis Tests:"
 test_redis
 
 echo ""
-echo "🌐 Service Endpoint Tests:"
-test_http_endpoint "grafana" "http://localhost:3000/api/health"
-test_http_endpoint "prometheus" "http://localhost:9090/-/healthy"
-test_http_endpoint "alertmanager" "http://localhost:9093/-/healthy"
+echo "🌐 Service Endpoint Tests (DNS):"
+test_http_endpoint "grafana" "http://grafana.xplaincrypto.ai/api/health"
+test_http_endpoint "prometheus" "http://prometheus.xplaincrypto.ai/-/healthy"
+test_http_endpoint "alertmanager" "http://alerts.xplaincrypto.ai/-/healthy"
+
+echo ""
+echo "🌐 Local Service Tests:"
 test_http_endpoint "redis_exporter" "http://localhost:9121/metrics"
 test_http_endpoint "node_exporter" "http://localhost:9100/metrics"
 test_http_endpoint "pushgateway" "http://localhost:9091/metrics"
 test_http_endpoint "nginx_health" "http://localhost/health"
-
-# DNS tests (if configured)
-echo ""
-echo "🌍 DNS Endpoint Tests:"
-test_http_endpoint "grafana_dns" "http://grafana.xplaincrypto.ai/api/health"
-test_http_endpoint "prometheus_dns" "http://prometheus.xplaincrypto.ai/-/healthy"
-test_http_endpoint "alerts_dns" "http://alerts.xplaincrypto.ai/-/healthy"
 
 # Generate JSON output for n8n
 echo ""
@@ -222,7 +215,7 @@ done
 echo "Status: $overall_status"
 echo "Healthy: $healthy_count/$total_count"
 
-# Create JSON output file for n8n - FIXED
+# Create JSON output file for n8n
 json_output=$(cat <<EOF
 {
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
