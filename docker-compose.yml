@@ -238,9 +238,10 @@ volumes:
       device: /var/log/xplaincrypto/nginx
 
 # ====================
-# NETWORKS - LOCAL (NOT EXTERNAL)
+# NETWORKS - MASTER EXTERNAL NETWORK FOR ALL SERVICES
 # ====================
 
 networks:
   xplaincrypto_network:
-    driver: bridge 
+    driver: bridge
+    name: xplaincrypto_network 
