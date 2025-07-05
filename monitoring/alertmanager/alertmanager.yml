@@ -35,25 +35,21 @@ receivers:
     webhook_configs:
       - url: 'https://n8n.xplaincrypto.ai/webhook/alert'
         send_resolved: true
-        title: '[DEV] XplainCrypto Alert - {{ .GroupLabels.alertname }}'
 
   - name: 'critical-alerts'
     webhook_configs:
       - url: 'https://n8n.xplaincrypto.ai/webhook/critical-alert'
         send_resolved: true
-        title: '[CRITICAL DEV] {{ .GroupLabels.alertname }}'
 
   - name: 'ai-team'
     webhook_configs:
       - url: 'https://n8n.xplaincrypto.ai/webhook/ai-alert'
         send_resolved: true
-        title: '[AI DEV] {{ .GroupLabels.alertname }}'
 
   - name: 'database-team'
     webhook_configs:
       - url: 'https://n8n.xplaincrypto.ai/webhook/database-alert'
         send_resolved: true
-        title: '[DATABASE DEV] {{ .GroupLabels.alertname }}'
 
 inhibit_rules:
   # Don't send warnings if critical alert is already firing
