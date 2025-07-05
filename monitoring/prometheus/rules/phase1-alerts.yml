@@ -1,0 +1,266 @@
+groups:
+  # ===================
+  # MINDSDB AI MONITORING
+  # ===================
+  
+  - name: mindsdb-health
+    interval: 30s
+    rules:
+      - alert: MindsDBDown
+        expr: up{job="mindsdb-health"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: ai
+          service: mindsdb
+        annotations:
+          summary: "MindsDB AI service is down"
+          description: "MindsDB at 142.93.49.20:47334 has been down for more than 2 minutes"
+          runbook_url: "https://docs.mindsdb.com/troubleshooting"
+          
+      - alert: MindsDBHighLatency
+        expr: probe_duration_seconds{job="mindsdb-health"} > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: ai
+          service: mindsdb
+        annotations:
+          summary: "MindsDB API high latency"
+          description: "MindsDB API response time is {{ $value | humanizeDuration }}"
+          
+      - alert: MindsDBAgentFailure
+        expr: |
+          increase(mindsdb_model_prediction_errors_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          team: ai
+          service: mindsdb
+        annotations:
+          summary: "MindsDB AI agent prediction failures"
+          description: "{{ $value }} prediction errors in the last 5 minutes"
+
+  # ===================
+  # POSTGRESQL MONITORING
+  # ===================
+  
+  - name: postgresql-health
+    interval: 30s
+    rules:
+      - alert: PostgreSQLDown
+        expr: up{job=~"postgres-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: database
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "PostgreSQL database {{ $labels.database_name }} has been down for more than 1 minute"
+          
+      - alert: PostgreSQLHighConnections
+        expr: |
+          (pg_stat_database_numbackends / pg_settings_max_connections) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL high connection usage"
+          description: "Database {{ $labels.database_name }} is using {{ $value | humanizePercentage }} of available connections"
+          
+      - alert: PostgreSQLSlowQueries
+        expr: |
+          rate(pg_stat_database_tup_returned[5m]) / rate(pg_stat_database_tup_fetched[5m]) < 0.1
+        for: 10m
+        labels:
+          severity: warning
+          team: database
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL slow query performance"
+          description: "Database {{ $labels.database_name }} query efficiency is {{ $value | humanizePercentage }}"
+          
+      - alert: PostgreSQLDiskSpaceLow
+        expr: |
+          (pg_database_size_bytes / (1024*1024*1024)) > 8
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL database size growing"
+          description: "Database {{ $labels.database_name }} is {{ $value | humanize }}GB in size"
+
+  # ===================
+  # REDIS MONITORING
+  # ===================
+  
+  - name: redis-health
+    interval: 30s
+    rules:
+      - alert: RedisDown
+        expr: up{job="redis-cache"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: cache
+          service: redis
+        annotations:
+          summary: "Redis cache is down"
+          description: "Redis cache has been down for more than 1 minute"
+          
+      - alert: RedisHighMemoryUsage
+        expr: |
+          (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: cache
+          service: redis
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}"
+          
+      - alert: RedisHighLatency
+        expr: |
+          redis_latency_percentiles_usec{quantile="0.99"} > 100000
+        for: 5m
+        labels:
+          severity: warning
+          team: cache
+          service: redis
+        annotations:
+          summary: "Redis high latency"
+          description: "Redis 99th percentile latency is {{ $value | humanize }}µs"
+
+  # ===================
+  # N8N WORKFLOW MONITORING
+  # ===================
+  
+  - name: n8n-workflows
+    interval: 30s
+    rules:
+      - alert: N8NWorkflowFailures
+        expr: |
+          increase(n8n_workflow_executions_failed_total[10m]) > 3
+        for: 1m
+        labels:
+          severity: warning
+          team: automation
+          service: n8n
+        annotations:
+          summary: "Multiple n8n workflow failures"
+          description: "{{ $value }} workflow executions failed in the last 10 minutes"
+          
+      - alert: N8NServerDown
+        expr: up{job="n8n-server"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: automation
+          service: n8n
+        annotations:
+          summary: "n8n automation server is down"
+          description: "n8n server at 206.81.0.227:5678 has been down for more than 2 minutes"
+          
+      - alert: N8NHighExecutionTime
+        expr: |
+          histogram_quantile(0.95, sum(rate(n8n_workflow_execution_duration_seconds_bucket[5m])) by (le)) > 300
+        for: 5m
+        labels:
+          severity: warning
+          team: automation
+          service: n8n
+        annotations:
+          summary: "n8n workflow execution time high"
+          description: "95th percentile execution time is {{ $value | humanizeDuration }}"
+
+  # ===================
+  # SYSTEM MONITORING
+  # ===================
+  
+  - name: system-health
+    interval: 30s
+    rules:
+      - alert: HighCPUUsage
+        expr: |
+          (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          service: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+          
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          service: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+          
+      - alert: DiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+          service: system
+        annotations:
+          summary: "Low disk space"
+          description: "Only {{ $value | humanizePercentage }} disk space remaining on {{ $labels.instance }}"
+
+  # ===================
+  # XPLAINCRYPTO PLATFORM
+  # ===================
+  
+  - name: xplaincrypto-platform
+    interval: 30s
+    rules:
+      - alert: PlatformHealthCheck
+        expr: |
+          xplaincrypto_platform_health_status != 1
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+          service: xplaincrypto
+        annotations:
+          summary: "XplainCrypto platform health check failed"
+          description: "Platform health check has been failing for more than 2 minutes"
+          
+      - alert: AITokenUsageHigh
+        expr: |
+          sum(rate(xplaincrypto_ai_tokens_used_total[1h])) > 50000
+        for: 5m
+        labels:
+          severity: warning
+          team: ai
+          service: xplaincrypto
+        annotations:
+          summary: "High AI token usage"
+          description: "AI token usage is {{ $value }} tokens/hour - monitor costs"
+          
+      - alert: DataHandlerErrors
+        expr: |
+          sum(rate(xplaincrypto_handler_errors_total[10m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: data
+          service: xplaincrypto
+        annotations:
+          summary: "Data handler errors increasing"
+          description: "{{ $value }} data handler errors in the last 10 minutes" 

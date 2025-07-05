@@ -2,8 +2,9 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    cluster: 'xplaincrypto-infra'
+    cluster: 'xplaincrypto-production'
     env: 'production'
+    phase: 'phase1-monitoring'
 
 rule_files:
   - "rules/*.yml"
@@ -15,75 +16,150 @@ alerting:
           - alertmanager:9093
 
 scrape_configs:
-  # Prometheus self-monitoring
+  # ===================
+  # CORE INFRASTRUCTURE
+  # ===================
+  
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+    scrape_interval: 15s
 
-  # System metrics via node-exporter
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
     scrape_interval: 15s
 
-  # Redis metrics
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis-exporter:9121']
-    scrape_interval: 30s
-
-  # Grafana metrics
   - job_name: 'grafana'
     static_configs:
       - targets: ['grafana:3000']
     metrics_path: '/metrics'
     scrape_interval: 30s
 
-  # Pushgateway for custom metrics (n8n workflows)
-  - job_name: 'pushgateway'
-    static_configs:
-      - targets: ['pushgateway:9091']
-    scrape_interval: 30s
-    honor_labels: true
-
-  # AlertManager metrics
   - job_name: 'alertmanager'
     static_configs:
       - targets: ['alertmanager:9093']
     metrics_path: '/metrics'
     scrape_interval: 30s
 
-  # Loki metrics
+  # ===================
+  # REDIS MONITORING
+  # ===================
+  
+  - job_name: 'redis-cache'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # ===================
+  # POSTGRESQL MONITORING (3 Databases)
+  # ===================
+  
+  - job_name: 'postgres-crypto-data'
+    static_configs:
+      - targets: ['postgres-crypto-exporter:9187']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: database_name
+        replacement: 'crypto_data'
+
+  - job_name: 'postgres-user-data'
+    static_configs:
+      - targets: ['postgres-user-exporter:9188']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: database_name
+        replacement: 'user_data'
+
+  - job_name: 'postgres-fastapi-ops'
+    static_configs:
+      - targets: ['postgres-fastapi-exporter:9189']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: database_name
+        replacement: 'fastapi_ops'
+
+  # ===================
+  # MINDSDB AI MONITORING
+  # ===================
+  
+  - job_name: 'mindsdb-health'
+    static_configs:
+      - targets: ['142.93.49.20:47334']
+    metrics_path: '/api/health'
+    scrape_interval: 30s
+    scrape_timeout: 15s
+    params:
+      format: ['prometheus']
+
+  - job_name: 'mindsdb-agents'
+    static_configs:
+      - targets: ['142.93.49.20:47334']
+    metrics_path: '/api/models'
+    scrape_interval: 60s
+    scrape_timeout: 30s
+    params:
+      format: ['prometheus']
+
+  # ===================
+  # N8N WORKFLOW MONITORING
+  # ===================
+  
+  - job_name: 'n8n-server'
+    static_configs:
+      - targets: ['206.81.0.227:5678']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 15s
+    basic_auth:
+      username: 'admin'
+      password: 'n8n_secure_password_2024'
+
+  - job_name: 'n8n-workflow-metrics'
+    static_configs:
+      - targets: ['pushgateway:9091']
+    scrape_interval: 15s
+    honor_labels: true
+    metrics_path: '/metrics'
+    params:
+      match[]: ['{job=~"n8n-.*"}']
+
+  # ===================
+  # XPLAINCRYPTO PLATFORM
+  # ===================
+  
+  - job_name: 'xplaincrypto-platform'
+    static_configs:
+      - targets: ['pushgateway:9091']
+    scrape_interval: 30s
+    honor_labels: true
+    metrics_path: '/metrics'
+    params:
+      match[]: ['{job="xplaincrypto-platform"}']
+
+  # ===================
+  # PUSHGATEWAY
+  # ===================
+  
+  - job_name: 'pushgateway'
+    static_configs:
+      - targets: ['pushgateway:9091']
+    scrape_interval: 15s
+    honor_labels: true
+
+  # ===================
+  # LOKI LOGS
+  # ===================
+  
   - job_name: 'loki'
     static_configs:
       - targets: ['loki:3100']
     metrics_path: '/metrics'
-    scrape_interval: 30s
-
-  # Container metrics via cAdvisor (if added later)
-  - job_name: 'cadvisor'
-    static_configs:
-      - targets: ['cadvisor:8080']
-    scrape_interval: 30s
-
-  # n8n Workflow Monitoring (external)
-  - job_name: 'n8n-workflows'
-    static_configs:
-      - targets: ['206.81.0.227:5678']
-    metrics_path: '/metrics'
-    scrape_interval: 60s
-    scrape_timeout: 30s
-
-  # Future: MindsDB when deployed
-  # - job_name: 'mindsdb'
-  #   static_configs:
-  #     - targets: ['142.93.49.20:47334']
-  #   metrics_path: '/metrics'
-  #   scrape_interval: 60s
-
-  # Future: FastAPI when deployed  
-  # - job_name: 'fastapi'
-  #   static_configs:
-  #     - targets: ['142.93.49.20:8000']
-  #   metrics_path: '/metrics'
-  #   scrape_interval: 30s 
+    scrape_interval: 30s 

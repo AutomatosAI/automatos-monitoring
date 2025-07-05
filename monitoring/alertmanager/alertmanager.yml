@@ -1,13 +1,11 @@
 global:
   resolve_timeout: 5m
-  # Slack configuration (optional - update with your webhook)
-  # slack_api_url: 'YOUR_SLACK_WEBHOOK_URL'
 
 route:
   group_by: ['alertname', 'cluster', 'service']
   group_wait: 10s
   group_interval: 10s
-  repeat_interval: 12h
+  repeat_interval: 1h
   receiver: 'default'
   
   routes:
@@ -15,76 +13,47 @@ route:
     - match:
         severity: critical
       receiver: critical-alerts
-      group_wait: 0s
-      repeat_interval: 1h
+      group_wait: 5s
+      repeat_interval: 30m
       
     # AI/ML alerts
     - match:
         team: ai
       receiver: ai-team
       group_wait: 30s
-      repeat_interval: 4h
+      repeat_interval: 2h
       
     # Database alerts
     - match:
         team: database
       receiver: database-team
-      group_wait: 1m
-      repeat_interval: 4h
-      
-    # API alerts
-    - match:
-        team: api
-      receiver: api-team
-      group_wait: 30s
-      repeat_interval: 2h
-      
-    # Business metrics
-    - match:
-        severity: info
-      receiver: business-metrics
-      group_wait: 5m
-      repeat_interval: 24h
+      group_wait: 15s
+      repeat_interval: 1h
 
 receivers:
   - name: 'default'
     webhook_configs:
-      - url: 'http://localhost:5001/webhook'
+      - url: 'https://n8n.xplaincrypto.ai/webhook/alert'
         send_resolved: true
+        title: '[DEV] XplainCrypto Alert - {{ .GroupLabels.alertname }}'
 
   - name: 'critical-alerts'
     webhook_configs:
-      - url: 'http://localhost:5001/critical'
+      - url: 'https://n8n.xplaincrypto.ai/webhook/critical-alert'
         send_resolved: true
-    # Uncomment for email notifications
-    # email_configs:
-    #   - to: 'alerts@xplaincrypto.com'
-    #     from: 'alertmanager@xplaincrypto.com'
-    #     smarthost: 'smtp.gmail.com:587'
-    #     auth_username: 'alertmanager@xplaincrypto.com'
-    #     auth_password: 'YOUR_APP_PASSWORD'
-    #     headers:
-    #       Subject: 'CRITICAL: {{ .GroupLabels.alertname }}'
+        title: '[CRITICAL DEV] {{ .GroupLabels.alertname }}'
 
   - name: 'ai-team'
     webhook_configs:
-      - url: 'http://localhost:5001/ai-alerts'
+      - url: 'https://n8n.xplaincrypto.ai/webhook/ai-alert'
         send_resolved: true
+        title: '[AI DEV] {{ .GroupLabels.alertname }}'
 
   - name: 'database-team'
     webhook_configs:
-      - url: 'http://localhost:5001/database-alerts'
+      - url: 'https://n8n.xplaincrypto.ai/webhook/database-alert'
         send_resolved: true
-
-  - name: 'api-team'
-    webhook_configs:
-      - url: 'http://localhost:5001/api-alerts'
-        send_resolved: true
-
-  - name: 'business-metrics'
-    webhook_configs:
-      - url: 'http://localhost:5001/business-metrics'
-        send_resolved: true
+        title: '[DATABASE DEV] {{ .GroupLabels.alertname }}'
 
 inhibit_rules:
   # Don't send warnings if critical alert is already firing
