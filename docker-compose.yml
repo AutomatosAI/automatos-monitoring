@@ -186,7 +186,7 @@ services:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: xplaincrypto-postgres-user-exporter
     environment:
-      DATA_SOURCE_NAME: "postgresql://xplaincrypto:SimplePass123@xplaincrypto-postgres-users:5432/user_data?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://xplaincrypto:SimplePass123@142.93.49.20:5433/user_data?sslmode=disable"
     ports:
       - "9188:9188"
     networks:
@@ -197,7 +197,7 @@ services:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: xplaincrypto-postgres-fastapi-exporter
     environment:
-      DATA_SOURCE_NAME: "postgresql://fastapi:fastapi_secure_pass_2024@xplaincrypto-postgres-fastapi:5432/fastapi_ops?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://fastapi:fastapi_secure_pass_2024@142.93.49.20:5434/fastapi_ops?sslmode=disable"
     ports:
       - "9189:9189"
     networks:
