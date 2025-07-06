@@ -193,17 +193,6 @@ services:
       - xplaincrypto_network
     restart: unless-stopped
 
-  postgres-fastapi-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
-    container_name: xplaincrypto-postgres-fastapi-exporter
-    environment:
-      DATA_SOURCE_NAME: "postgresql://fastapi:fastapi_secure_pass_2024@142.93.49.20:5434/fastapi_ops?sslmode=disable"
-    ports:
-      - "9189:9189"
-    networks:
-      - xplaincrypto_network
-    restart: unless-stopped
-
   # ====================
   # REVERSE PROXY
   # ====================
