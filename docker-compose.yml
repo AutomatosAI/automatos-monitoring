@@ -9,7 +9,11 @@ volumes:
   postgres_crypto_data:
   postgres_users_data:
   postgres_fastapi_data:
-  # ... existing monitoring volumes
+  # Monitoring volumes
+  redis_data:
+  grafana_data:
+  prometheus_data:
+  alertmanager_data:
 
 services:
   # ====================
@@ -21,9 +25,7 @@ services:
     environment:
       POSTGRES_DB: crypto_data
       POSTGRES_USER: mindsdb
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_crypto_password
-    secrets:
-      - postgres_crypto_password
+      POSTGRES_PASSWORD: QmTJL6k24h7R3zK9p8wN1F2xV5Y
     volumes:
       - postgres_crypto_data:/var/lib/postgresql/data
     ports:
@@ -43,9 +45,7 @@ services:
     environment:
       POSTGRES_DB: user_data
       POSTGRES_USER: xplaincrypto
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_users_password
-    secrets:
-      - postgres_users_password
+      POSTGRES_PASSWORD: Ifr9eC7rtRMHZlIJ3kBzbqi2f
     volumes:
       - postgres_users_data:/var/lib/postgresql/data
     ports:
@@ -65,9 +65,7 @@ services:
     environment:
       POSTGRES_DB: operational_data
       POSTGRES_USER: fastapi
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_fastapi_password
-    secrets:
-      - postgres_fastapi_password
+      POSTGRES_PASSWORD: XJONccQ0vQ3JnwDT1bhi8Qfuy1inRwGP
     volumes:
       - postgres_fastapi_data:/var/lib/postgresql/data
     ports:
@@ -135,23 +133,13 @@ services:
   redis:
     image: redis:7-alpine
     container_name: xplaincrypto-redis
-    restart: unless-stopped
-    command: >
-      sh -c 'redis-server 
-      --requirepass "$$(cat /run/secrets/redis_password)"
-      --save 900 1
-      --save 300 10
-      --save 60 10000
-      --dbfilename xplaincrypto-redis.rdb
-      --dir /data'
-    secrets:
-      - redis_password
+    command: redis-server --requirepass redis_secure_pass_dev123
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "sh", "-c", "redis-cli --no-auth-warning -a \"$$(cat /run/secrets/redis_password)\" ping"]
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "redis_secure_pass_dev123", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -162,12 +150,8 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: xplaincrypto-grafana
-    restart: unless-stopped
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD_FILE=/run/secrets/grafana_admin_password
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_DOMAIN=grafana.xplaincrypto.ai
-      - GF_INSTALL_PLUGINS=redis-datasource
+      GF_SECURITY_ADMIN_PASSWORD: grafana_admin_dev123
     ports:
       - "3000:3000"
     volumes:
@@ -186,31 +170,18 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: xplaincrypto-prometheus
-    restart: unless-stopped
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=30d'
-      - '--web.enable-lifecycle'
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
-    depends_on:
-      - postgres-exporter-crypto
-      - postgres-exporter-users
-      - postgres-exporter-fastapi
     networks:
       - xplaincrypto_network
+    restart: unless-stopped
 
   # AlertManager
   alertmanager:
     image: prom/alertmanager:latest
     container_name: xplaincrypto-alertmanager
-    restart: unless-stopped
     ports:
       - "9093:9093"
     volumes:
