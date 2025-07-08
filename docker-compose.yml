@@ -25,7 +25,9 @@ services:
     environment:
       POSTGRES_DB: crypto_data
       POSTGRES_USER: mindsdb
-      POSTGRES_PASSWORD: QmTJL6k24h7R3zK9p8wN1F2xV5Y
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_crypto_password
+    secrets:
+      - postgres_crypto_password
     volumes:
       - postgres_crypto_data:/var/lib/postgresql/data
     ports:
@@ -45,7 +47,9 @@ services:
     environment:
       POSTGRES_DB: user_data
       POSTGRES_USER: xplaincrypto
-      POSTGRES_PASSWORD: Ifr9eC7rtRMHZlIJ3kBzbqi2f
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_users_password
+    secrets:
+      - postgres_users_password
     volumes:
       - postgres_users_data:/var/lib/postgresql/data
     ports:
@@ -65,7 +69,9 @@ services:
     environment:
       POSTGRES_DB: operational_data
       POSTGRES_USER: fastapi
-      POSTGRES_PASSWORD: XJONccQ0vQ3JnwDT1bhi8Qfuy1inRwGP
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_fastapi_password
+    secrets:
+      - postgres_fastapi_password
     volumes:
       - postgres_fastapi_data:/var/lib/postgresql/data
     ports:
@@ -133,7 +139,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: xplaincrypto-redis
-    command: redis-server --requirepass redis_secure_pass_dev123
+    command: sh -c 'redis-server --requirepass "$$(cat /run/secrets/redis_password)"'
+    secrets:
+      - redis_password
     ports:
       - "6379:6379"
     volumes:
@@ -151,15 +159,15 @@ services:
     image: grafana/grafana:latest
     container_name: xplaincrypto-grafana
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: grafana_admin_dev123
+      GF_SECURITY_ADMIN_PASSWORD_FILE: /run/secrets/grafana_admin_password
+    secrets:
+      - grafana_admin_password
     ports:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
-    secrets:
-      - grafana_admin_password
     depends_on:
       - prometheus
       - redis
