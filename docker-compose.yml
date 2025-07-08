@@ -1,178 +1,125 @@
 version: '3.8'
 
+networks:
+  xplaincrypto_network:
+    external: true
+
+volumes:
+  # Database volumes
+  postgres_crypto_data:
+  postgres_users_data:
+  postgres_fastapi_data:
+  # ... existing monitoring volumes
+
 services:
   # ====================
-  # DATABASE LAYER - ALL THREE DATABASES
+  # DATABASE SERVICES
   # ====================
-
-  # Database 1: Crypto Data (for MindsDB) - Port 5432
   postgres-crypto:
-    image: postgres:15-alpine
+    image: postgres:15
     container_name: xplaincrypto-postgres-crypto
-    restart: unless-stopped
     environment:
       POSTGRES_DB: crypto_data
       POSTGRES_USER: mindsdb
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_crypto_password
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-      PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_crypto_data:/var/lib/postgresql/data
-      - ./sql/crypto-init:/docker-entrypoint-initdb.d:ro
     secrets:
       - postgres_crypto_password
-    command: >
-      postgres 
-      -c log_statement=all
-      -c log_destination=stderr
-      -c logging_collector=on
-      -c log_filename=postgresql-crypto-%Y-%m-%d_%H%M%S.log
-      -c log_rotation_age=1d
-      -c log_rotation_size=100MB
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mindsdb -d crypto_data"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+    volumes:
+      - postgres_crypto_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     networks:
       - xplaincrypto_network
-
-  # Database 2: User Data - Port 5433
-  postgres-users:
-    image: postgres:15-alpine
-    container_name: xplaincrypto-postgres-users
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mindsdb -d crypto_data"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: unless-stopped
+
+  postgres-users:
+    image: postgres:15
+    container_name: xplaincrypto-postgres-users
     environment:
       POSTGRES_DB: user_data
       POSTGRES_USER: xplaincrypto
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_users_password
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-      PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_users_data:/var/lib/postgresql/data
-      - ./sql/users-init:/docker-entrypoint-initdb.d:ro
     secrets:
       - postgres_users_password
-    command: >
-      postgres 
-      -c log_statement=all
-      -c log_destination=stderr
-      -c logging_collector=on
-      -c log_filename=postgresql-users-%Y-%m-%d_%H%M%S.log
-      -c log_rotation_age=1d
-      -c log_rotation_size=100MB
+    volumes:
+      - postgres_users_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - xplaincrypto_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U xplaincrypto -d user_data"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - xplaincrypto_network
-
-  # Database 3: FastAPI Operations - Port 5434
-  postgres-fastapi:
-    image: postgres:15-alpine
-    container_name: xplaincrypto-postgres-fastapi
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: unless-stopped
+
+  postgres-fastapi:
+    image: postgres:15
+    container_name: xplaincrypto-postgres-fastapi
     environment:
-      POSTGRES_DB: fastapi_ops
+      POSTGRES_DB: operational_data
       POSTGRES_USER: fastapi
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_fastapi_password
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-      PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "5434:5432"
-    volumes:
-      - postgres_fastapi_data:/var/lib/postgresql/data
-      - ./sql/fastapi-init:/docker-entrypoint-initdb.d:ro
     secrets:
       - postgres_fastapi_password
-    command: >
-      postgres 
-      -c log_statement=all
-      -c log_destination=stderr
-      -c logging_collector=on
-      -c log_filename=postgresql-fastapi-%Y-%m-%d_%H%M%S.log
-      -c log_rotation_age=1d
-      -c log_rotation_size=100MB
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fastapi -d fastapi_ops"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+    volumes:
+      - postgres_fastapi_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
     networks:
       - xplaincrypto_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fastapi -d operational_data"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
 
-  # ====================
-  # DATABASE MONITORING
-  # ====================
-
-  # PostgreSQL Exporter for Crypto DB
+  # Database Exporters
   postgres-exporter-crypto:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: xplaincrypto-postgres-exporter-crypto
-    restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME_FILE: /run/secrets/postgres_crypto_exporter_dsn
-      PG_EXPORTER_EXTEND_QUERY_PATH: "/etc/postgres_exporter/queries.yaml"
+      DATA_SOURCE_NAME: "postgresql://mindsdb:QmTJL6k24h7R3zK9p8wN1F2xV5Y@postgres-crypto:5432/crypto_data?sslmode=disable"
     ports:
       - "9187:9187"
-    volumes:
-      - ./monitoring/postgres_exporter_queries.yaml:/etc/postgres_exporter/queries.yaml:ro
-    secrets:
-      - postgres_crypto_exporter_dsn
-    depends_on:
-      postgres-crypto:
-        condition: service_healthy
     networks:
       - xplaincrypto_network
+    depends_on:
+      - postgres-crypto
+    restart: unless-stopped
 
-  # PostgreSQL Exporter for User DB
   postgres-exporter-users:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: xplaincrypto-postgres-exporter-users
-    restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME_FILE: /run/secrets/postgres_users_exporter_dsn
-      PG_EXPORTER_EXTEND_QUERY_PATH: "/etc/postgres_exporter/queries.yaml"
+      DATA_SOURCE_NAME: "postgresql://xplaincrypto:Ifr9eC7rtRMHZlIJ3kBzbqi2f@postgres-users:5432/user_data?sslmode=disable"
     ports:
       - "9188:9187"
-    volumes:
-      - ./monitoring/postgres_exporter_queries.yaml:/etc/postgres_exporter/queries.yaml:ro
-    secrets:
-      - postgres_users_exporter_dsn
-    depends_on:
-      postgres-users:
-        condition: service_healthy
     networks:
       - xplaincrypto_network
+    depends_on:
+      - postgres-users
+    restart: unless-stopped
 
-  # PostgreSQL Exporter for FastAPI DB
   postgres-exporter-fastapi:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: xplaincrypto-postgres-exporter-fastapi
-    restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME_FILE: /run/secrets/postgres_fastapi_exporter_dsn
-      PG_EXPORTER_EXTEND_QUERY_PATH: "/etc/postgres_exporter/queries.yaml"
+      DATA_SOURCE_NAME: "postgresql://fastapi:XJONccQ0vQ3JnwDT1bhi8Qfuy1inRwGP@postgres-fastapi:5432/operational_data?sslmode=disable"
     ports:
       - "9189:9187"
-    volumes:
-      - ./monitoring/postgres_exporter_queries.yaml:/etc/postgres_exporter/queries.yaml:ro
-    secrets:
-      - postgres_fastapi_exporter_dsn
-    depends_on:
-      postgres-fastapi:
-        condition: service_healthy
     networks:
       - xplaincrypto_network
+    depends_on:
+      - postgres-fastapi
+    restart: unless-stopped
 
   # ====================
   # EXISTING INFRASTRUCTURE SERVICES
@@ -321,7 +268,6 @@ services:
 # ====================
 
 secrets:
-  # Database Passwords
   postgres_crypto_password:
     file: ./secrets/postgres_crypto_password.txt
   postgres_users_password:
@@ -329,68 +275,32 @@ secrets:
   postgres_fastapi_password:
     file: ./secrets/postgres_fastapi_password.txt
   
-  # Database Exporter DSNs
-  postgres_crypto_exporter_dsn:
-    file: ./secrets/postgres_crypto_exporter_dsn.txt
-  postgres_users_exporter_dsn:
-    file: ./secrets/postgres_users_exporter_dsn.txt
-  postgres_fastapi_exporter_dsn:
-    file: ./secrets/postgres_fastapi_exporter_dsn.txt
-  
   # Application Passwords
   grafana_admin_password:
     file: ./secrets/grafana_admin_password.txt
 
 # ====================
-# VOLUMES - CONSISTENT NAMING PATTERN
+# VOLUMES - FIXED CONFIGURATION  
 # ====================
 
 volumes:
   # Database Data
   postgres_crypto_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /var/lib/xplaincrypto/postgres-crypto
   postgres_users_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /var/lib/xplaincrypto/postgres-users
   postgres_fastapi_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /var/lib/xplaincrypto/postgres-fastapi
   
   # Application Data
   redis_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /var/lib/xplaincrypto/redis
   grafana_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /var/lib/xplaincrypto/grafana
   prometheus_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /var/lib/xplaincrypto/prometheus
   alertmanager_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /var/lib/xplaincrypto/alertmanager
 
 # ====================
 # NETWORKS

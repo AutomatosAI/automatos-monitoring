@@ -1,24 +1,32 @@
 #!/bin/bash
-# Create all required secret files
+set -e
+
+echo "🔐 Creating unified infrastructure secrets..."
 
 # Create secrets directory
 mkdir -p secrets
 
-# Database passwords
-echo 'your_crypto_db_password' > secrets/postgres_crypto_password.txt
-echo 'Ifr9eC7rtRMHZlIJ3kBzbqi2f' > secrets/postgres_users_password.txt
+# Database passwords (from your credential matrix)
+echo 'QmTJL6k24h7R3zK9p8wN1F2xV5Y' > secrets/postgres_crypto_password.txt
+echo 'Ifr9eC7rtRMHZlIJ3kBzbqi2f' > secrets/postgres_users_password.txt  
 echo 'XJONccQ0vQ3JnwDT1bhi8Qfuy1inRwGP' > secrets/postgres_fastapi_password.txt
 
-# Database exporter DSNs
-echo 'postgresql://mindsdb:your_crypto_db_password@postgres-crypto:5432/crypto_data?sslmode=disable' > secrets/postgres_crypto_exporter_dsn.txt
-echo 'postgresql://xplaincrypto:Ifr9eC7rtRMHZlIJ3kBzbqi2f@postgres-users:5432/user_data?sslmode=disable' > secrets/postgres_users_exporter_dsn.txt
-echo 'postgresql://fastapi:XJONccQ0vQ3JnwDT1bhi8Qfuy1inRwGP@postgres-fastapi:5432/fastapi_ops?sslmode=disable' > secrets/postgres_fastapi_exporter_dsn.txt
-
 # Application passwords
-echo 'grafana_admin_secure_password' > secrets/grafana_admin_password.txt
+echo 'redis_secure_pass_dev123' > secrets/redis_password.txt
+echo 'grafana_admin_dev123' > secrets/grafana_admin_password.txt
 
-# Set proper permissions
-chmod 600 secrets/*
-chown root:root secrets/*
+# MindsDB integration password
+echo 'mindsdb_secure_pass_2024!' > secrets/mindsdb_password.txt
 
-echo "✅ All secrets created successfully" 
+# Set proper permissions (security critical)
+chmod 600 secrets/*.txt
+chown root:root secrets/* 2>/dev/null || echo "Note: chown requires sudo"
+
+echo "✅ All secrets created successfully:"
+echo "📁 Database secrets: postgres_crypto, postgres_users, postgres_fastapi"
+echo "🔴 Cache secret: redis_password"  
+echo "📊 Grafana secret: grafana_admin_password"
+echo "🤖 MindsDB secret: mindsdb_password"
+echo ""
+echo "🔒 Permissions set to 600 (owner read/write only)"
+echo "✅ Secrets creation complete!" 
