@@ -34,7 +34,7 @@
 ### Redis Cache
 - **Host**: 142.93.49.20 (external) / redis (internal)
 - **Port**: 6379
-- **Password**: redis_secure_pass_dev123
+- **Password**: 
 - **Databases**: 
   - DB 0: MindsDB cache
   - DB 1: User sessions

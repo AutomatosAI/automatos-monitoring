@@ -86,7 +86,9 @@ services:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: xplaincrypto-postgres-exporter-crypto
     environment:
-      DATA_SOURCE_NAME: "postgresql://mindsdb:QmTJL6k24h7R3zK9p8wN1F2xV5Y@postgres-crypto:5432/crypto_data?sslmode=disable"
+      DATA_SOURCE_NAME_FILE: /run/secrets/postgres_crypto_dsn
+    secrets:
+      - postgres_crypto_dsn
     ports:
       - "9187:9187"
     networks:
@@ -99,7 +101,9 @@ services:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: xplaincrypto-postgres-exporter-users
     environment:
-      DATA_SOURCE_NAME: "postgresql://xplaincrypto:Ifr9eC7rtRMHZlIJ3kBzbqi2f@postgres-users:5432/user_data?sslmode=disable"
+      DATA_SOURCE_NAME_FILE: /run/secrets/postgres_users_dsn
+    secrets:
+      - postgres_users_dsn
     ports:
       - "9188:9187"
     networks:
@@ -112,7 +116,9 @@ services:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: xplaincrypto-postgres-exporter-fastapi
     environment:
-      DATA_SOURCE_NAME: "postgresql://fastapi:XJONccQ0vQ3JnwDT1bhi8Qfuy1inRwGP@postgres-fastapi:5432/operational_data?sslmode=disable"
+      DATA_SOURCE_NAME_FILE: /run/secrets/postgres_fastapi_dsn
+    secrets:
+      - postgres_fastapi_dsn
     ports:
       - "9189:9187"
     networks:
@@ -131,19 +137,21 @@ services:
     container_name: xplaincrypto-redis
     restart: unless-stopped
     command: >
-      redis-server 
-      --requirepass redis_secure_pass_dev123
+      sh -c 'redis-server 
+      --requirepass "$$(cat /run/secrets/redis_password)"
       --save 900 1
       --save 300 10
       --save 60 10000
       --dbfilename xplaincrypto-redis.rdb
-      --dir /data
+      --dir /data'
+    secrets:
+      - redis_password
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "redis_secure_pass_dev123", "ping"]
+      test: ["CMD", "sh", "-c", "redis-cli --no-auth-warning -a \"$$(cat /run/secrets/redis_password)\" ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -255,7 +263,9 @@ services:
     restart: unless-stopped
     environment:
       REDIS_ADDR: redis://redis:6379
-      REDIS_PASSWORD: redis_secure_pass_dev123
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+    secrets:
+      - redis_password
     ports:
       - "9121:9121"
     depends_on:
@@ -268,6 +278,7 @@ services:
 # ====================
 
 secrets:
+  # Database passwords
   postgres_crypto_password:
     file: ./secrets/postgres_crypto_password.txt
   postgres_users_password:
@@ -275,7 +286,19 @@ secrets:
   postgres_fastapi_password:
     file: ./secrets/postgres_fastapi_password.txt
   
-  # Application Passwords
+  # Redis password
+  redis_password:
+    file: ./secrets/redis_password.txt
+  
+  # Database connection strings for exporters
+  postgres_crypto_dsn:
+    file: ./secrets/postgres_crypto_dsn.txt
+  postgres_users_dsn:
+    file: ./secrets/postgres_users_dsn.txt
+  postgres_fastapi_dsn:
+    file: ./secrets/postgres_fastapi_dsn.txt
+  
+  # Application passwords
   grafana_admin_password:
     file: ./secrets/grafana_admin_password.txt
 
