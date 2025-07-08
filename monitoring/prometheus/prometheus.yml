@@ -16,75 +16,59 @@ alerting:
           - alertmanager:9093
 
 scrape_configs:
-  # ===================
-  # CORE INFRASTRUCTURE
-  # ===================
-  
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-    scrape_interval: 15s
-
+  # System Monitoring
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
     scrape_interval: 15s
+    metrics_path: /metrics
 
-  - job_name: 'grafana'
-    static_configs:
-      - targets: ['grafana:3000']
-    metrics_path: '/metrics'
-    scrape_interval: 30s
-
-  - job_name: 'alertmanager'
-    static_configs:
-      - targets: ['alertmanager:9093']
-    metrics_path: '/metrics'
-    scrape_interval: 30s
-
-  # ===================
-  # REDIS MONITORING
-  # ===================
-  
-  - job_name: 'redis-cache'
+  # Redis Monitoring
+  - job_name: 'redis-exporter'
     static_configs:
       - targets: ['redis-exporter:9121']
     scrape_interval: 15s
-    scrape_timeout: 10s
 
-  # ===================
-  # POSTGRESQL MONITORING (3 Databases)
-  # ===================
-  
-  - job_name: 'postgres-crypto-data'
+  # Database Monitoring - ALL THREE DATABASES
+  - job_name: 'postgres-crypto'
     static_configs:
-      - targets: ['postgres-crypto-exporter:9187']
+      - targets: ['postgres-exporter-crypto:9187']
     scrape_interval: 30s
-    scrape_timeout: 10s
+    metrics_path: /metrics
     relabel_configs:
       - source_labels: [__address__]
-        target_label: database_name
-        replacement: 'crypto_data'
+        target_label: instance
+        replacement: 'crypto-database'
 
-  - job_name: 'postgres-user-data'
+  - job_name: 'postgres-users'
     static_configs:
-      - targets: ['postgres-user-exporter:9188']
+      - targets: ['postgres-exporter-users:9188']
     scrape_interval: 30s
-    scrape_timeout: 10s
+    metrics_path: /metrics
     relabel_configs:
       - source_labels: [__address__]
-        target_label: database_name
-        replacement: 'user_data'
+        target_label: instance
+        replacement: 'users-database'
 
-  - job_name: 'postgres-fastapi-ops'
+  - job_name: 'postgres-fastapi'
     static_configs:
-      - targets: ['postgres-fastapi-exporter:9189']
+      - targets: ['postgres-exporter-fastapi:9189']
     scrape_interval: 30s
-    scrape_timeout: 10s
+    metrics_path: /metrics
     relabel_configs:
       - source_labels: [__address__]
-        target_label: database_name
-        replacement: 'fastapi_ops'
+        target_label: instance
+        replacement: 'fastapi-database'
+
+  # Prometheus Self-Monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # AlertManager
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
 
   # ===================
   # MINDSDB AI MONITORING

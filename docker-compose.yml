@@ -2,243 +2,398 @@ version: '3.8'
 
 services:
   # ====================
-  # REDIS - SINGLE INSTANCE FOR ALL SERVICES
+  # DATABASE LAYER - ALL THREE DATABASES
   # ====================
-  
+
+  # Database 1: Crypto Data (for MindsDB) - Port 5432
+  postgres-crypto:
+    image: postgres:15-alpine
+    container_name: xplaincrypto-postgres-crypto
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: crypto_data
+      POSTGRES_USER: mindsdb
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_crypto_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_crypto_data:/var/lib/postgresql/data
+      - ./sql/crypto-init:/docker-entrypoint-initdb.d:ro
+    secrets:
+      - postgres_crypto_password
+    command: >
+      postgres 
+      -c log_statement=all
+      -c log_destination=stderr
+      -c logging_collector=on
+      -c log_filename=postgresql-crypto-%Y-%m-%d_%H%M%S.log
+      -c log_rotation_age=1d
+      -c log_rotation_size=100MB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mindsdb -d crypto_data"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - xplaincrypto_network
+
+  # Database 2: User Data - Port 5433
+  postgres-users:
+    image: postgres:15-alpine
+    container_name: xplaincrypto-postgres-users
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: user_data
+      POSTGRES_USER: xplaincrypto
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_users_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_users_data:/var/lib/postgresql/data
+      - ./sql/users-init:/docker-entrypoint-initdb.d:ro
+    secrets:
+      - postgres_users_password
+    command: >
+      postgres 
+      -c log_statement=all
+      -c log_destination=stderr
+      -c logging_collector=on
+      -c log_filename=postgresql-users-%Y-%m-%d_%H%M%S.log
+      -c log_rotation_age=1d
+      -c log_rotation_size=100MB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xplaincrypto -d user_data"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - xplaincrypto_network
+
+  # Database 3: FastAPI Operations - Port 5434
+  postgres-fastapi:
+    image: postgres:15-alpine
+    container_name: xplaincrypto-postgres-fastapi
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fastapi_ops
+      POSTGRES_USER: fastapi
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_fastapi_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_fastapi_data:/var/lib/postgresql/data
+      - ./sql/fastapi-init:/docker-entrypoint-initdb.d:ro
+    secrets:
+      - postgres_fastapi_password
+    command: >
+      postgres 
+      -c log_statement=all
+      -c log_destination=stderr
+      -c logging_collector=on
+      -c log_filename=postgresql-fastapi-%Y-%m-%d_%H%M%S.log
+      -c log_rotation_age=1d
+      -c log_rotation_size=100MB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fastapi -d fastapi_ops"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - xplaincrypto_network
+
+  # ====================
+  # DATABASE MONITORING
+  # ====================
+
+  # PostgreSQL Exporter for Crypto DB
+  postgres-exporter-crypto:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: xplaincrypto-postgres-exporter-crypto
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME_FILE: /run/secrets/postgres_crypto_exporter_dsn
+      PG_EXPORTER_EXTEND_QUERY_PATH: "/etc/postgres_exporter/queries.yaml"
+    ports:
+      - "9187:9187"
+    volumes:
+      - ./monitoring/postgres_exporter_queries.yaml:/etc/postgres_exporter/queries.yaml:ro
+    secrets:
+      - postgres_crypto_exporter_dsn
+    depends_on:
+      postgres-crypto:
+        condition: service_healthy
+    networks:
+      - xplaincrypto_network
+
+  # PostgreSQL Exporter for User DB
+  postgres-exporter-users:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: xplaincrypto-postgres-exporter-users
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME_FILE: /run/secrets/postgres_users_exporter_dsn
+      PG_EXPORTER_EXTEND_QUERY_PATH: "/etc/postgres_exporter/queries.yaml"
+    ports:
+      - "9188:9187"
+    volumes:
+      - ./monitoring/postgres_exporter_queries.yaml:/etc/postgres_exporter/queries.yaml:ro
+    secrets:
+      - postgres_users_exporter_dsn
+    depends_on:
+      postgres-users:
+        condition: service_healthy
+    networks:
+      - xplaincrypto_network
+
+  # PostgreSQL Exporter for FastAPI DB
+  postgres-exporter-fastapi:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: xplaincrypto-postgres-exporter-fastapi
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME_FILE: /run/secrets/postgres_fastapi_exporter_dsn
+      PG_EXPORTER_EXTEND_QUERY_PATH: "/etc/postgres_exporter/queries.yaml"
+    ports:
+      - "9189:9187"
+    volumes:
+      - ./monitoring/postgres_exporter_queries.yaml:/etc/postgres_exporter/queries.yaml:ro
+    secrets:
+      - postgres_fastapi_exporter_dsn
+    depends_on:
+      postgres-fastapi:
+        condition: service_healthy
+    networks:
+      - xplaincrypto_network
+
+  # ====================
+  # EXISTING INFRASTRUCTURE SERVICES
+  # ====================
+
+  # Redis (Shared Cache)
   redis:
     image: redis:7-alpine
     container_name: xplaincrypto-redis
+    restart: unless-stopped
     command: >
       redis-server 
-      --requirepass "redis_secure_pass_dev123"
-      --appendonly yes
-      --appendfsync everysec
-      --maxmemory 1gb
-      --maxmemory-policy allkeys-lru
+      --requirepass redis_secure_pass_dev123
       --save 900 1
       --save 300 10
       --save 60 10000
-      --databases 16
-    volumes:
-      - redis_data:/data
-    networks:
-      - xplaincrypto_network
+      --dbfilename xplaincrypto-redis.rdb
+      --dir /data
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "redis_secure_pass_dev123", "ping"]
-      interval: 30s
-      timeout: 10s
+      interval: 10s
+      timeout: 5s
       retries: 5
-    restart: unless-stopped
+    networks:
+      - xplaincrypto_network
 
-  # ====================
-  # MONITORING STACK
-  # ====================
-  
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: xplaincrypto-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD_FILE=/run/secrets/grafana_admin_password
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=grafana.xplaincrypto.ai
+      - GF_INSTALL_PLUGINS=redis-datasource
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    secrets:
+      - grafana_admin_password
+    depends_on:
+      - prometheus
+      - redis
+    networks:
+      - xplaincrypto_network
+
+  # Prometheus
   prometheus:
     image: prom/prometheus:latest
     container_name: xplaincrypto-prometheus
-    volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./monitoring/prometheus/rules:/etc/prometheus/rules
-      - prometheus_data:/prometheus
+    restart: unless-stopped
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
       - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
     ports:
       - "9090:9090"
-    networks:
-      - xplaincrypto_network
-    restart: unless-stopped
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: xplaincrypto-grafana
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: grafana_admin_dev123
-      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,redis-datasource
-      GF_USERS_ALLOW_SIGN_UP: false
     volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
-    ports:
-      - "3000:3000"
-    networks:
-      - xplaincrypto_network
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
     depends_on:
-      - prometheus
-    restart: unless-stopped
-
-  # ====================
-  # LOGGING STACK
-  # ====================
-  
-  loki:
-    image: grafana/loki:latest
-    container_name: xplaincrypto-loki
-    ports:
-      - "3100:3100"
-    volumes:
-      - ./monitoring/loki/loki.yml:/etc/loki/local-config.yaml
-      - loki_data:/loki
-    command: -config.file=/etc/loki/local-config.yaml
+      - postgres-exporter-crypto
+      - postgres-exporter-users
+      - postgres-exporter-fastapi
     networks:
       - xplaincrypto_network
-    restart: unless-stopped
 
-  promtail:
-    image: grafana/promtail:latest
-    container_name: xplaincrypto-promtail
-    volumes:
-      - ./monitoring/promtail/promtail-unified.yml:/etc/promtail/config.yml
-      - /var/log:/var/log:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-    command: -config.file=/etc/promtail/config.yml
-    networks:
-      - xplaincrypto_network
-    depends_on:
-      - loki
-    restart: unless-stopped
-
-  # ====================
-  # ALERTING
-  # ====================
-  
+  # AlertManager
   alertmanager:
     image: prom/alertmanager:latest
     container_name: xplaincrypto-alertmanager
+    restart: unless-stopped
     ports:
       - "9093:9093"
     volumes:
-      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager_data:/alertmanager
-    command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-      - '--storage.path=/alertmanager'
     networks:
       - xplaincrypto_network
-    restart: unless-stopped
 
-  # ====================
-  # EXPORTERS FOR MONITORING
-  # ====================
-  
-  redis-exporter:
-    image: oliver006/redis_exporter:latest
-    container_name: xplaincrypto-redis-exporter
-    environment:
-      REDIS_ADDR: redis://redis:6379
-      REDIS_PASSWORD: redis_secure_pass_dev123
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: xplaincrypto-nginx
+    restart: unless-stopped
     ports:
-      - "9121:9121"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - grafana
+      - prometheus
+      - alertmanager
     networks:
       - xplaincrypto_network
-    depends_on:
-      - redis
-    restart: unless-stopped
 
+  # Node Exporter
   node-exporter:
     image: prom/node-exporter:latest
     container_name: xplaincrypto-node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
     command:
-      - '--path.rootfs=/host'
       - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /:/host:ro
-    ports:
-      - "9100:9100"
+      - /:/rootfs:ro
     networks:
       - xplaincrypto_network
-    restart: unless-stopped
 
-  pushgateway:
-    image: prom/pushgateway:latest
-    container_name: xplaincrypto-pushgateway
-    ports:
-      - "9091:9091"
-    networks:
-      - xplaincrypto_network
+  # Redis Exporter
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: xplaincrypto-redis-exporter
     restart: unless-stopped
-
-  # ====================
-  # REVERSE PROXY
-  # ====================
-  
-  nginx:
-    image: nginx:alpine
-    container_name: xplaincrypto-nginx
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: redis_secure_pass_dev123
     ports:
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - nginx_logs:/var/log/nginx
-    networks:
-      - xplaincrypto_network
+      - "9121:9121"
     depends_on:
-      - grafana
-      - prometheus
-    restart: unless-stopped
+      - redis
+    networks:
+      - xplaincrypto_network
 
 # ====================
-# VOLUMES - LOCAL (NOT EXTERNAL)
+# SECRETS CONFIGURATION - BANKING-GRADE SECURITY
+# ====================
+
+secrets:
+  # Database Passwords
+  postgres_crypto_password:
+    file: ./secrets/postgres_crypto_password.txt
+  postgres_users_password:
+    file: ./secrets/postgres_users_password.txt
+  postgres_fastapi_password:
+    file: ./secrets/postgres_fastapi_password.txt
+  
+  # Database Exporter DSNs
+  postgres_crypto_exporter_dsn:
+    file: ./secrets/postgres_crypto_exporter_dsn.txt
+  postgres_users_exporter_dsn:
+    file: ./secrets/postgres_users_exporter_dsn.txt
+  postgres_fastapi_exporter_dsn:
+    file: ./secrets/postgres_fastapi_exporter_dsn.txt
+  
+  # Application Passwords
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password.txt
+
+# ====================
+# VOLUMES - CONSISTENT NAMING PATTERN
 # ====================
 
 volumes:
+  # Database Data
+  postgres_crypto_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/xplaincrypto/postgres-crypto
+  postgres_users_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/xplaincrypto/postgres-users
+  postgres_fastapi_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/xplaincrypto/postgres-fastapi
+  
+  # Application Data
   redis_data:
     driver: local
     driver_opts:
       type: none
       o: bind
       device: /var/lib/xplaincrypto/redis
-      
-  prometheus_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /var/lib/xplaincrypto/prometheus
-      
   grafana_data:
     driver: local
     driver_opts:
       type: none
       o: bind
       device: /var/lib/xplaincrypto/grafana
-      
-  loki_data:
+  prometheus_data:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /var/lib/xplaincrypto/loki
-      
+      device: /var/lib/xplaincrypto/prometheus
   alertmanager_data:
     driver: local
     driver_opts:
       type: none
       o: bind
       device: /var/lib/xplaincrypto/alertmanager
-      
-  nginx_logs:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /var/log/xplaincrypto/nginx
 
 # ====================
-# NETWORKS - MASTER EXTERNAL NETWORK FOR ALL SERVICES
+# NETWORKS
 # ====================
 
 networks:

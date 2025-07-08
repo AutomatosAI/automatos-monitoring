@@ -1,0 +1,57 @@
+{
+  "dashboard": {
+    "title": "XplainCrypto Database Overview",
+    "panels": [
+      {
+        "title": "Database Connections",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "pg_stat_database_numbackends{instance=\"crypto-database\"}",
+            "legendFormat": "Crypto DB Connections"
+          },
+          {
+            "expr": "pg_stat_database_numbackends{instance=\"users-database\"}",
+            "legendFormat": "Users DB Connections"
+          },
+          {
+            "expr": "pg_stat_database_numbackends{instance=\"fastapi-database\"}",
+            "legendFormat": "FastAPI DB Connections"
+          }
+        ]
+      },
+      {
+        "title": "Database Sizes",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "pg_database_size_bytes{instance=\"crypto-database\"}",
+            "legendFormat": "Crypto Database"
+          },
+          {
+            "expr": "pg_database_size_bytes{instance=\"users-database\"}",
+            "legendFormat": "Users Database"
+          },
+          {
+            "expr": "pg_database_size_bytes{instance=\"fastapi-database\"}",
+            "legendFormat": "FastAPI Database"
+          }
+        ]
+      },
+      {
+        "title": "Query Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(pg_stat_database_tup_fetched[5m])",
+            "legendFormat": "Rows Fetched - {{instance}}"
+          },
+          {
+            "expr": "rate(pg_stat_database_tup_inserted[5m])",
+            "legendFormat": "Rows Inserted - {{instance}}"
+          }
+        ]
+      }
+    ]
+  }
+} 
