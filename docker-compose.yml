@@ -1,20 +1,5 @@
 version: '3.8'
 
-networks:
-  xplaincrypto_network:
-    external: true
-
-volumes:
-  # Database volumes
-  postgres_crypto_data:
-  postgres_users_data:
-  postgres_fastapi_data:
-  # Monitoring volumes
-  redis_data:
-  grafana_data:
-  prometheus_data:
-  alertmanager_data:
-
 services:
   # ====================
   # DATABASE SERVICES
@@ -132,10 +117,8 @@ services:
     restart: unless-stopped
 
   # ====================
-  # EXISTING INFRASTRUCTURE SERVICES
+  # CACHE & STORAGE SERVICES
   # ====================
-
-  # Redis (Shared Cache)
   redis:
     image: redis:7-alpine
     container_name: xplaincrypto-redis
@@ -155,7 +138,38 @@ services:
       - xplaincrypto_network
     restart: unless-stopped
 
-  # Grafana
+  # Redis Exporter
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: xplaincrypto-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+    secrets:
+      - redis_password
+    ports:
+      - "9121:9121"
+    depends_on:
+      - redis
+    networks:
+      - xplaincrypto_network
+
+  # ====================
+  # MONITORING SERVICES
+  # ====================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: xplaincrypto-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - xplaincrypto_network
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:latest
     container_name: xplaincrypto-grafana
@@ -176,19 +190,6 @@ services:
       - xplaincrypto_network
     restart: unless-stopped
 
-  # Prometheus
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: xplaincrypto-prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - prometheus_data:/prometheus
-    networks:
-      - xplaincrypto_network
-    restart: unless-stopped
-
-  # AlertManager
   alertmanager:
     image: prom/alertmanager:latest
     container_name: xplaincrypto-alertmanager
@@ -201,7 +202,9 @@ services:
       - xplaincrypto_network
     restart: unless-stopped
 
-  # Nginx Reverse Proxy
+  # ====================
+  # INFRASTRUCTURE SERVICES
+  # ====================
   nginx:
     image: nginx:alpine
     container_name: xplaincrypto-nginx
@@ -219,7 +222,6 @@ services:
     networks:
       - xplaincrypto_network
 
-  # Node Exporter
   node-exporter:
     image: prom/node-exporter:latest
     container_name: xplaincrypto-node-exporter
@@ -238,27 +240,9 @@ services:
     networks:
       - xplaincrypto_network
 
-  # Redis Exporter
-  redis-exporter:
-    image: oliver006/redis_exporter:latest
-    container_name: xplaincrypto-redis-exporter
-    restart: unless-stopped
-    environment:
-      REDIS_ADDR: redis://redis:6379
-      REDIS_PASSWORD_FILE: /run/secrets/redis_password
-    secrets:
-      - redis_password
-    ports:
-      - "9121:9121"
-    depends_on:
-      - redis
-    networks:
-      - xplaincrypto_network
-
 # ====================
-# SECRETS CONFIGURATION - BANKING-GRADE SECURITY
+# SECRETS CONFIGURATION
 # ====================
-
 secrets:
   # Database passwords
   postgres_crypto_password:
@@ -285,9 +269,8 @@ secrets:
     file: ./secrets/grafana_admin_password.txt
 
 # ====================
-# VOLUMES - FIXED CONFIGURATION  
+# VOLUMES - SINGLE DEFINITION
 # ====================
-
 volumes:
   # Database Data
   postgres_crypto_data:
@@ -308,7 +291,7 @@ volumes:
     driver: local
 
 # ====================
-# NETWORKS
+# NETWORKS - SINGLE DEFINITION
 # ====================
 networks:
   xplaincrypto_network:
