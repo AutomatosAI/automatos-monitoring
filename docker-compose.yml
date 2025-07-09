@@ -246,27 +246,27 @@ services:
 secrets:
   # Database passwords
   postgres_crypto_password:
-    file: ./secrets/postgres_crypto_password.txt
+    file: /opt/secrets/xplaincrypto/postgres_crypto_password.txt
   postgres_users_password:
-    file: ./secrets/postgres_users_password.txt
+    file: /opt/secrets/xplaincrypto/postgres_users_password.txt
   postgres_fastapi_password:
-    file: ./secrets/postgres_fastapi_password.txt
+    file: /opt/secrets/xplaincrypto/postgres_fastapi_password.txt
   
   # Redis password
   redis_password:
-    file: ./secrets/redis_password.txt
+    file: /opt/secrets/xplaincrypto/redis_password.txt
   
   # Database connection strings for exporters
   postgres_crypto_dsn:
-    file: ./secrets/postgres_crypto_dsn.txt
+    file: /opt/secrets/xplaincrypto/postgres_crypto_dsn.txt
   postgres_users_dsn:
-    file: ./secrets/postgres_users_dsn.txt
+    file: /opt/secrets/xplaincrypto/postgres_users_dsn.txt
   postgres_fastapi_dsn:
-    file: ./secrets/postgres_fastapi_dsn.txt
+    file: /opt/secrets/xplaincrypto/postgres_fastapi_dsn.txt
   
   # Application passwords
   grafana_admin_password:
-    file: ./secrets/grafana_admin_password.txt
+    file: /opt/secrets/xplaincrypto/grafana_admin_password.txt
 
 # ====================
 # VOLUMES - SINGLE DEFINITION
