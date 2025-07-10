@@ -189,7 +189,7 @@ services:
     networks:
       - xplaincrypto_network
     restart: unless-stopped
-
+  
   alertmanager:
     image: prom/alertmanager:latest
     container_name: xplaincrypto-alertmanager
@@ -240,9 +240,9 @@ services:
     networks:
       - xplaincrypto_network
 
-# ====================
+  # ====================
 # SECRETS CONFIGURATION
-# ====================
+  # ====================
 secrets:
   # Database passwords
   postgres_crypto_password:
@@ -279,7 +279,7 @@ volumes:
     driver: local
   postgres_fastapi_data:
     driver: local
-  
+      
   # Application Data
   redis_data:
     driver: local

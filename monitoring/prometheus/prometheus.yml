@@ -28,7 +28,7 @@ scrape_configs:
     static_configs:
       - targets: ['redis-exporter:9121']
     scrape_interval: 15s
-
+  
   # Database Monitoring - ALL THREE DATABASES
   - job_name: 'postgres-crypto'
     static_configs:
