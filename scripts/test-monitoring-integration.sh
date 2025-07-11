@@ -12,6 +12,7 @@ function test_with_retry {
   local max_retries=3 
   local retry=0 
   while [ $retry -lt $max_retries ]; do 
+    echo "Testing $url (attempt $((retry+1)))..." 
     curl -s -f -u admin:$(cat /opt/secrets/xplaincrypto/grafana_admin_password.txt) $url && echo "✅" && return 0 
     echo "⚠️ Retry $((retry+1))/$max_retries..." 
     sleep 5 
@@ -23,10 +24,10 @@ function test_with_retry {
 
 # Test all components
 components=(
-    "prometheus:http://prometheus.xplaincrypto.ai:9090/-/healthy:Prometheus is Healthy"
+    "prometheus:http://prometheus.xplaincrypto.ai/-/healthy:Prometheus is Healthy"
     "grafana:http://grafana.xplaincrypto.ai/api/health:database.*ok"
-    "alertmanager:http://localhost:9093/-/healthy:Alertmanager is Healthy"
-    "pushgateway:http://localhost:9091/metrics:push_gateway"
+    "alertmanager:http://alertmanager.xplaincrypto.ai/-/healthy:Alertmanager is Healthy"
+    "pushgateway:http://pushgateway.xplaincrypto.ai/metrics:push_gateway"
     "redis_exporter:http://localhost:9121/metrics:redis_"
     "node_exporter:http://localhost:9100/metrics:node_"
 )

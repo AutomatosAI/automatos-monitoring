@@ -68,8 +68,8 @@ else
 fi
 
 echo "🔄 Checking and forcing system clock sync... "
-timedatectl set-ntp true 
-ntpdate -s pool.ntp.org || { echo "⚠️ Force sync failed— manual check needed"; validation_failed=true; } 
+systemctl start chrony 
+chronyc makestep || { echo "⚠️ Clock sync failed— check chrony service"; validation_failed=true; } 
 
 echo ""
 if [[ "$validation_failed" == true ]]; then

@@ -18,47 +18,17 @@ else
     echo "❌ Grafana not accessible via DNS"
 fi
 
-# Function to import dashboard
-import_dashboard() {
-    local dashboard_file="$1"
-    local dashboard_name=$(basename "$dashboard_file" .json)
-    
-    echo "📈 Importing dashboard: $dashboard_name"
-    
-    # Prepare the dashboard JSON for import
-    local dashboard_json=$(cat "$dashboard_file")
-    local import_payload=$(cat <<EOF
-{
-  "dashboard": $dashboard_json,
-  "overwrite": true,
-  "inputs": [],
-  "folderId": 0
-}
-EOF
-)
-    
-    # Import dashboard via API using DNS
-    response=$(curl -s -X POST \
-        -H "Content-Type: application/json" \
-        -u admin:$GRAFANA_PASSWORD \
-        -d "$import_payload" \
-        "http://grafana.xplaincrypto.ai/api/dashboards/import" 2>/dev/null || echo '{"status":"error"}')
-    
-    if echo "$response" | grep -q '"status":"success"'; then
-        echo "  ✅ Successfully imported $dashboard_name"
-    else
-        echo "  ⚠️ Import may have failed for $dashboard_name"
-    fi
-}
+echo "📁 Managing XplainCrypto folder..."
+FOLDER_UID="xplaincrypto-folder"
+GRAFANA_URL="http://grafana.xplaincrypto.ai"
+if ! curl -u admin:$GRAFANA_PASSWORD -f -s "$GRAFANA_URL/api/folders/$FOLDER_UID" > /dev/null; then
+  curl -u admin:$GRAFANA_PASSWORD -X POST -H 'Content-Type: application/json' -d '{"uid": "$FOLDER_UID", "title": "XplainCrypto"}' $GRAFANA_URL/api/folders || echo "Folder creation failed"
+else
+  curl -u admin:$GRAFANA_PASSWORD -X PUT -H 'Content-Type: application/json' -d '{"uid": "$FOLDER_UID", "title": "XplainCrypto", "overwrite": true}' $GRAFANA_URL/api/folders/$FOLDER_UID || echo "Folder update failed"
+fi
 
-# Create custom folder for XplainCrypto dashboards
-echo ""
-echo "📁 Creating/Updating XplainCrypto folder with UID..."
-folder_payload='{"uid": "xplaincrypto-folder", "title": "XplainCrypto"}'
-curl -u admin:$GRAFANA_PASSWORD -X PUT -H 'Content-Type: application/json' -d '{"uid": "xplaincrypto-folder", "title": "XplainCrypto"}' http://grafana.xplaincrypto.ai/api/folders/xplaincrypto-folder || echo "Folder update failed"
-
-# Install dependencies quietly 
-pip install requests --quiet 
+# Install dependencies quietly
+pip install requests --quiet
 
 # Import all dashboards
 echo ""
@@ -66,7 +36,7 @@ echo "📊 Importing dashboards..."
 
 dashboard_files=(
     "monitoring/grafana/dashboards/infrastructure-testing.json"
-    "monitoring/grafana/dashboards/n8n-workflow-execution.json" 
+    "monitoring/grafana/dashboards/n8n-workflow-execution.json"
     "monitoring/grafana/dashboards/platform-status-comprehensive.json"
     "monitoring/grafana/dashboards/xplaincrypto-overview.json"
     "monitoring/grafana/dashboards/ai-agents-performance.json"
@@ -77,7 +47,7 @@ dashboard_files=(
 
 for dashboard_file in "${dashboard_files[@]}"; do
     if [[ -f "$dashboard_file" ]]; then
-        import_dashboard "$dashboard_file"
+        jq '.dashboard.folder = "$FOLDER_UID"' "$dashboard_file" | curl -u admin:$GRAFANA_PASSWORD -X POST -H 'Content-Type: application/json' -d @- "$GRAFANA_URL/api/dashboards/db" || echo "⚠️ Import failed for $(basename $dashboard_file)"
     else
         echo "  ⚠️ Dashboard file not found: $dashboard_file"
     fi
