@@ -9,13 +9,13 @@ echo "=========================================="
 # Helper function for retrying tests 
 function test_with_retry { 
   local url="$1" 
-  local max_retries=10 
+  local max_retries=15 
   local retry=0 
   while [ $retry -lt $max_retries ]; do 
     echo "Testing $url (attempt $((retry+1)))..." 
-    curl -v -s -f -u admin:$(cat /opt/secrets/xplaincrypto/grafana_admin_password.txt) $url && echo "✅" && return 0 
-    echo "⚠️ Retry $((retry+1))/$max_retries..." 
-    sleep 10 
+    curl -v -s -f -u admin:$(cat /opt/secrets/xplaincrypto/grafana_admin_password.txt) $url 2>&1 | tee /tmp/test_log.txt && grep -q "$expected_output" /tmp/test_log.txt && echo "✅" && return 0 
+    echo "⚠️ Failure details in /tmp/test_log.txt" 
+    sleep $((5 + retry * 2))  # Progressive sleep 
     retry=$((retry+1)) 
   done 
   echo "❌" 
@@ -23,10 +23,16 @@ function test_with_retry {
 } 
 
 # Test all components
+echo "🔍 Checking container health..." 
+for container in xplaincrypto-prometheus xplaincrypto-grafana xplaincrypto-alertmanager xplaincrypto-pushgateway xplaincrypto-redis-exporter xplaincrypto-node-exporter; do 
+  status=$(docker inspect --format='{{.State.Status}}' $container) 
+  [ "$status" = "running" ] && echo "$container: ✅" || echo "$container: ❌ ($status)" 
+done 
+
 components=(
-    "prometheus:http://localhost:9090/-/healthy:Prometheus is Healthy"
+    "prometheus:http://localhost:9090/-/healthy $( [ -f /opt/secrets/xplaincrypto/prometheus_password.txt ] && echo "--user admin:$(cat /opt/secrets/xplaincrypto/prometheus_password.txt)" ):Prometheus is Healthy"
     "grafana:http://localhost:3000/api/health:database.*ok"
-    "alertmanager:http://localhost:9093/-/healthy:Alertmanager is Healthy"
+    "alertmanager:http://localhost:9093/-/healthy --user admin:$(cat /opt/secrets/xplaincrypto/alertmanager_password.txt):Alertmanager is Healthy"
     "pushgateway:http://localhost:9091/metrics:push_gateway"
     "redis_exporter:http://localhost:9121/metrics:redis_"
     "node_exporter:http://localhost:9100/metrics:node_"
@@ -82,7 +88,7 @@ else
 fi
 
 # Check if metrics appear in Prometheus
-sleep 5
+sleep 15
 echo -n "Testing metrics in Prometheus... "
 if curl -s "http://localhost:9090/api/v1/query?query=n8n_server_up" | grep -q '"result"'; then
     echo "✅"

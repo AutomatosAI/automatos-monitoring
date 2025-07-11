@@ -71,8 +71,12 @@ echo "🔄 Installing chrony if needed... "
 apt-get update && apt-get install -y chrony 
 echo "🔄 Checking and forcing system clock sync... "
 systemctl enable chronyd 
-systemctl start chronyd 
-chronyc makestep 
+if ! systemctl start chronyd; then 
+  echo "⚠️ Chrony failed— falling back to timesyncd" 
+  apt-get install -y systemd-timesyncd 
+  timedatectl set-ntp true 
+fi 
+chronyc makestep || hwclock --systohc 
 chronyc sources || { echo "⚠️ Clock sync failed— check chronyc sources"; validation_failed=true; } 
 
 echo ""
