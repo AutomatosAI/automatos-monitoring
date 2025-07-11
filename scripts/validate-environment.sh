@@ -76,6 +76,10 @@ if ! systemctl start chronyd; then
   apt-get install -y systemd-timesyncd 
   timedatectl set-ntp true 
 fi 
+if ! timedatectl set-ntp true; then 
+  echo "⚠️ All NTP failed— forcing hwclock sync" 
+  hwclock --systohc 
+fi 
 chronyc makestep || hwclock --systohc 
 chronyc sources || { echo "⚠️ Clock sync failed— check chronyc sources"; validation_failed=true; } 
 

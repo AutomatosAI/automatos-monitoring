@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🧪 XplainCrypto Monitoring Integration Test"
+echo "🧪 Minimal Dev Test: Logging & Dashboards"
 echo "=========================================="
 
 # Helper function for retrying tests 

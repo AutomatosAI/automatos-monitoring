@@ -331,9 +331,9 @@ volumes:
 # ====================
 # NETWORKS - SINGLE DEFINITION
 # ====================
-networks:
-  xplaincrypto_network:
-    external: true 
+networks: 
+  xplaincrypto_network: 
+    # external: true  (removed for dev auto-creation) 
   monitoring: 
-    # external: true  (commented out to auto-create) 
+    # external: true  (removed for dev auto-creation) 
     
