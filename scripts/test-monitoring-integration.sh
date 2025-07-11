@@ -6,10 +6,25 @@ set -e
 echo "🧪 XplainCrypto Monitoring Integration Test"
 echo "=========================================="
 
+# Helper function for retrying tests 
+function test_with_retry { 
+  local url="$1" 
+  local max_retries=3 
+  local retry=0 
+  while [ $retry -lt $max_retries ]; do 
+    curl -s -f -u admin:$(cat /opt/secrets/xplaincrypto/grafana_admin_password.txt) $url && echo "✅" && return 0 
+    echo "⚠️ Retry $((retry+1))/$max_retries..." 
+    sleep 5 
+    retry=$((retry+1)) 
+  done 
+  echo "❌" 
+  return 1 
+} 
+
 # Test all components
 components=(
-    "prometheus:http://localhost:9090/-/healthy:Prometheus is Healthy"
-    "grafana:http://localhost:3000/api/health:database.*ok"
+    "prometheus:http://prometheus.xplaincrypto.ai:9090/-/healthy:Prometheus is Healthy"
+    "grafana:http://grafana.xplaincrypto.ai/api/health:database.*ok"
     "alertmanager:http://localhost:9093/-/healthy:Alertmanager is Healthy"
     "pushgateway:http://localhost:9091/metrics:push_gateway"
     "redis_exporter:http://localhost:9121/metrics:redis_"

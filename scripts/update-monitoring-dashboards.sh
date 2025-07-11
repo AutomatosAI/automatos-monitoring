@@ -53,13 +53,9 @@ EOF
 
 # Create custom folder for XplainCrypto dashboards
 echo ""
-echo "📁 Creating XplainCrypto folder..."
-folder_payload='{"title":"XplainCrypto","uid":"xplaincrypto"}'
-curl -s -X POST \
-    -H "Content-Type: application/json" \
-    -u admin:$GRAFANA_PASSWORD \
-    -d "$folder_payload" \
-    "http://grafana.xplaincrypto.ai/api/folders" 2>/dev/null || echo "Folder may already exist"
+echo "📁 Creating/Updating XplainCrypto folder with UID..."
+folder_payload='{"uid": "xplaincrypto-folder", "title": "XplainCrypto"}'
+curl -u admin:$GRAFANA_PASSWORD -X PUT -H 'Content-Type: application/json' -d '{"uid": "xplaincrypto-folder", "title": "XplainCrypto"}' http://grafana.xplaincrypto.ai/api/folders/xplaincrypto-folder || echo "Folder update failed"
 
 # Install dependencies quietly 
 pip install requests --quiet 
