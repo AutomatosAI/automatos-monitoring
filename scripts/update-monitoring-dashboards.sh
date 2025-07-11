@@ -19,7 +19,7 @@ else
 fi
 
 echo "📁 Managing XplainCrypto folder..."
-FOLDER_UID="xplaincrypto-folder"
+FOLDER_UID="xplaincryptofolder"
 GRAFANA_URL="http://grafana.xplaincrypto.ai"
 if ! curl -u admin:$GRAFANA_PASSWORD -f -s "$GRAFANA_URL/api/folders/$FOLDER_UID" > /dev/null; then
   curl -u admin:$GRAFANA_PASSWORD -X POST -H 'Content-Type: application/json' -d '{"uid": "$FOLDER_UID", "title": "XplainCrypto"}' $GRAFANA_URL/api/folders || echo "Folder creation failed"
@@ -34,6 +34,13 @@ pip install requests --quiet
 echo ""
 echo "📊 Importing dashboards..."
 
+# Cleanup old dashboards to avoid duplicates 
+echo "🧹 Cleaning up existing dashboards..." 
+dash_uids=$(curl -u admin:$GRAFANA_PASSWORD -s $GRAFANA_URL/api/search?folderIds=0 | jq -r '.[] | select(.folderUid == "$FOLDER_UID") | .uid') 
+for uid in $dash_uids; do 
+  curl -u admin:$GRAFANA_PASSWORD -X DELETE $GRAFANA_URL/api/dashboards/uid/$uid || echo "Failed to delete $uid" 
+done 
+
 dashboard_files=(
     "monitoring/grafana/dashboards/infrastructure-testing.json"
     "monitoring/grafana/dashboards/n8n-workflow-execution.json"
@@ -47,7 +54,7 @@ dashboard_files=(
 
 for dashboard_file in "${dashboard_files[@]}"; do
     if [[ -f "$dashboard_file" ]]; then
-        jq '.dashboard.folder = "$FOLDER_UID"' "$dashboard_file" | curl -u admin:$GRAFANA_PASSWORD -X POST -H 'Content-Type: application/json' -d @- "$GRAFANA_URL/api/dashboards/db" || echo "⚠️ Import failed for $(basename $dashboard_file)"
+        jq '.dashboard.folder = "$FOLDER_UID" | .dashboard.title |= (if . == null or . == "" then "Untitled Dashboard" else . end)' "$dashboard_file" | curl -u admin:$GRAFANA_PASSWORD -X POST -H 'Content-Type: application/json' -d @- "$GRAFANA_URL/api/dashboards/db" || echo "⚠️ Import failed for $(basename $dashboard_file)"
     else
         echo "  ⚠️ Dashboard file not found: $dashboard_file"
     fi

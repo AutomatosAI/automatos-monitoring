@@ -67,8 +67,10 @@ else
     validation_failed=true
 fi
 
+echo "🔄 Installing chrony if needed... "
+apt-get update && apt-get install -y chrony 
 echo "🔄 Checking and forcing system clock sync... "
-systemctl start chrony 
+systemctl start chronyd 
 chronyc makestep || { echo "⚠️ Clock sync failed— check chrony service"; validation_failed=true; } 
 
 echo ""
