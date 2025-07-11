@@ -1,0 +1,45 @@
+{
+  "title": "Unified Platform Dashboard",
+  "panels": [
+
+    {
+      "title": "System Resources",
+      "type": "timeseries",
+      "targets": [
+        {"expr": "100 - (avg(irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)", "legendFormat": "CPU Usage"},
+        {"expr": "100 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100)", "legendFormat": "Memory Usage"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+ 
+    {
+      "title": "Centralized Logs",
+      "type": "logs",
+      "datasource": "Loki",
+      "targets": [
+        {"expr": "{job=~\".+\"} |= \"ERROR\""}
+      ],
+      "options": {"showTime": true, "showLabels": true, "wrapLogMessage": true},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+
+    {
+      "title": "FastAPI Metrics",
+      "type": "timeseries",
+      "targets": [
+        {"expr": "rate(fastapi_requests_total[5m])", "legendFormat": "Requests"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+    },
+    {
+      "title": "MindsDB Metrics",
+      "type": "timeseries",
+      "targets": [
+        {"expr": "rate(mindsdb_agent_requests_total[5m])", "legendFormat": "AI Requests"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+    }
+  ],
+  "refresh": "30s",
+  "time": {"from": "now-1h", "to": "now"}
+} 
