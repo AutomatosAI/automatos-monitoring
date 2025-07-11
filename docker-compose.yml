@@ -334,6 +334,6 @@ volumes:
 networks:
   xplaincrypto_network:
     external: true 
-  monitoring:
-    external: true 
+  monitoring: 
+    # external: true  (commented out to auto-create) 
     
