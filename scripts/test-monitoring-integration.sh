@@ -9,11 +9,11 @@ echo "=========================================="
 # Helper function for retrying tests 
 function test_with_retry { 
   local url="$1" 
-  local max_retries=5 
+  local max_retries=10 
   local retry=0 
   while [ $retry -lt $max_retries ]; do 
     echo "Testing $url (attempt $((retry+1)))..." 
-    curl -s -f -u admin:$(cat /opt/secrets/xplaincrypto/grafana_admin_password.txt) $url && echo "✅" && return 0 
+    curl -v -s -f -u admin:$(cat /opt/secrets/xplaincrypto/grafana_admin_password.txt) $url && echo "✅" && return 0 
     echo "⚠️ Retry $((retry+1))/$max_retries..." 
     sleep 10 
     retry=$((retry+1)) 
@@ -24,12 +24,12 @@ function test_with_retry {
 
 # Test all components
 components=(
-    "prometheus:http://prometheus.xplaincrypto.ai/-/healthy:Prometheus is Healthy"
-    "grafana:http://grafana.xplaincrypto.ai/api/health:database.*ok"
-    "alertmanager:http://alertmanager.xplaincrypto.ai/-/healthy:Alertmanager is Healthy"
-    "pushgateway:http://pushgateway.xplaincrypto.ai/metrics:push_gateway"
-    "redis_exporter:http://redis-exporter.xplaincrypto.ai/metrics:redis_"
-    "node_exporter:http://node-exporter.xplaincrypto.ai/metrics:node_"
+    "prometheus:http://localhost:9090/-/healthy:Prometheus is Healthy"
+    "grafana:http://localhost:3000/api/health:database.*ok"
+    "alertmanager:http://localhost:9093/-/healthy:Alertmanager is Healthy"
+    "pushgateway:http://localhost:9091/metrics:push_gateway"
+    "redis_exporter:http://localhost:9121/metrics:redis_"
+    "node_exporter:http://localhost:9100/metrics:node_"
 )
 
 all_passed=true

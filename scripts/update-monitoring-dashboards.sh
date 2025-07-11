@@ -35,11 +35,22 @@ echo ""
 echo "📊 Importing dashboards..."
 
 # Cleanup old dashboards to avoid duplicates 
-echo "🧹 Cleaning up existing dashboards..." 
-dash_uids=$(curl -u admin:$GRAFANA_PASSWORD -s $GRAFANA_URL/api/search?folderIds=0 | jq -r '.[] | select(.folderUid == "$FOLDER_UID") | .uid') 
+echo "🧹 Thorough cleanup of existing dashboards in folder..." 
+dash_uids=$(curl -u admin:$GRAFANA_PASSWORD -s "$GRAFANA_URL/api/search?folderUids=$FOLDER_UID" | jq -r '.[].uid') 
 for uid in $dash_uids; do 
-  curl -u admin:$GRAFANA_PASSWORD -X DELETE $GRAFANA_URL/api/dashboards/uid/$uid || echo "Failed to delete $uid" 
+  response=$(curl -u admin:$GRAFANA_PASSWORD -X DELETE "$GRAFANA_URL/api/dashboards/uid/$uid" -w "%{http_code}") 
+  if [ "$response" -eq 200 ]; then 
+    echo "🗑️ Deleted dashboard $uid" 
+  else 
+    echo "⚠️ Failed to delete $uid (code: $response)" 
+  fi 
 done 
+# Optional: Recreate folder if needed 
+if curl -u admin:$GRAFANA_PASSWORD -f -s "$GRAFANA_URL/api/folders/$FOLDER_UID" > /dev/null; then 
+  echo "Folder exists— skipping recreate" 
+else 
+  curl -u admin:$GRAFANA_PASSWORD -X POST -H 'Content-Type: application/json' -d '{"uid": "$FOLDER_UID", "title": "XplainCrypto"}' $GRAFANA_URL/api/folders 
+fi 
 
 dashboard_files=(
     "monitoring/grafana/dashboards/infrastructure-testing.json"
