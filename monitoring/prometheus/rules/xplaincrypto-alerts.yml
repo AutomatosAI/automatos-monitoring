@@ -187,3 +187,14 @@ groups:
         annotations:
           summary: "High API usage for {{ $labels.provider }}"
           description: "{{ $value }} API calls to {{ $labels.provider }} in the last 24 hours" 
+
+  - name: log-alerts
+    rules:
+      - alert: HighErrorRateInLogs
+        expr: rate(loki_logs_total{level="error"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate in logs"
+          description: "{{ $value }} errors per minute in logs" 
