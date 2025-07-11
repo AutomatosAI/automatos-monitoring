@@ -61,6 +61,9 @@ curl -s -X POST \
     -d "$folder_payload" \
     "http://grafana.xplaincrypto.ai/api/folders" 2>/dev/null || echo "Folder may already exist"
 
+# Install dependencies quietly 
+pip install requests --quiet 
+
 # Import all dashboards
 echo ""
 echo "📊 Importing dashboards..."

@@ -217,6 +217,25 @@ services:
       - monitoring 
     restart: unless-stopped 
 
+  promtail: 
+    image: grafana/promtail:latest 
+    container_name: xplaincrypto-promtail 
+    volumes: 
+      - /var/log:/var/log 
+      - ./monitoring/promtail/promtail-config.yaml:/etc/promtail/config.yml 
+    command: -config.file=/etc/promtail/config.yml 
+    networks: 
+      - monitoring 
+    restart: unless-stopped 
+  pushgateway: 
+    image: prom/pushgateway:latest 
+    container_name: xplaincrypto-pushgateway 
+    ports: 
+      - "9091:9091" 
+    networks: 
+      - monitoring 
+    restart: unless-stopped 
+
   # ====================
   # INFRASTRUCTURE SERVICES
   # ====================
@@ -306,6 +325,8 @@ volumes:
     driver: local
   loki-data:
     driver: local
+  promtail-data: 
+  pushgateway-data: 
 
 # ====================
 # NETWORKS - SINGLE DEFINITION

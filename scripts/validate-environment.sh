@@ -67,6 +67,9 @@ else
     validation_failed=true
 fi
 
+echo "🔄 Checking system clock... "
+ntpdate -q pool.ntp.org || echo "⚠️ Clock sync failed"
+
 echo ""
 if [[ "$validation_failed" == true ]]; then
     echo "❌ Validation FAILED"
