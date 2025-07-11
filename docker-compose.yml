@@ -204,6 +204,18 @@ services:
       - xplaincrypto_network
     restart: unless-stopped
 
+  loki: 
+    image: grafana/loki:latest 
+    container_name: xplaincrypto-loki 
+    ports: 
+      - "3100:3100" 
+    volumes: 
+      - loki-data:/loki 
+    command: -config.file=/etc/loki/local-config.yaml 
+    networks: 
+      - monitoring 
+    restart: unless-stopped 
+
   # ====================
   # INFRASTRUCTURE SERVICES
   # ====================
@@ -291,11 +303,15 @@ volumes:
     driver: local
   alertmanager_data:
     driver: local
+  loki-data:
+    driver: local
 
 # ====================
 # NETWORKS - SINGLE DEFINITION
 # ====================
 networks:
   xplaincrypto_network:
+    external: true 
+  monitoring:
     external: true 
     
