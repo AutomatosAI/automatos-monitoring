@@ -6,9 +6,13 @@ set -e
 echo "📊 Updating XplainCrypto Monitoring Dashboards"
 echo "=============================================="
 
+# Read actual Grafana password from secrets (permanent fix)
+GRAFANA_PASSWORD=$(cat /opt/secrets/xplaincrypto/grafana_admin_password.txt)
+echo "Using Grafana password from secrets"
+
 # Quick Grafana check - FIXED
 echo "⏳ Quick Grafana check..."
-if curl -s http://grafana.xplaincrypto.ai/api/health >/dev/null 2>&1; then
+if curl -s -u admin:$GRAFANA_PASSWORD http://grafana.xplaincrypto.ai/api/health >/dev/null 2>&1; then
     echo "✅ Grafana accessible via DNS"
 else
     echo "❌ Grafana not accessible via DNS"
@@ -36,7 +40,7 @@ EOF
     # Import dashboard via API using DNS
     response=$(curl -s -X POST \
         -H "Content-Type: application/json" \
-        -u admin:grafana_admin_dev123 \
+        -u admin:$GRAFANA_PASSWORD \
         -d "$import_payload" \
         "http://grafana.xplaincrypto.ai/api/dashboards/import" 2>/dev/null || echo '{"status":"error"}')
     
@@ -53,7 +57,7 @@ echo "📁 Creating XplainCrypto folder..."
 folder_payload='{"title":"XplainCrypto","uid":"xplaincrypto"}'
 curl -s -X POST \
     -H "Content-Type: application/json" \
-    -u admin:grafana_admin_dev123 \
+    -u admin:$GRAFANA_PASSWORD \
     -d "$folder_payload" \
     "http://grafana.xplaincrypto.ai/api/folders" 2>/dev/null || echo "Folder may already exist"
 
