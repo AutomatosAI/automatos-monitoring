@@ -19,13 +19,13 @@ chmod +x /usr/local/bin/enhanced-n8n-exporter.py
 echo "⚙️ Creating systemd service..."
 cat > /etc/systemd/system/xplaincrypto-metrics.service <<EOF
 [Unit]
-Description=XplainCrypto Enhanced Metrics Collector
+Description= XplainCrypto Metrics Service
 After=network.target docker.service
 Requires=docker.service
 
 [Service]
-Type=oneshot
-ExecStart=/usr/bin/python3 /usr/local/bin/enhanced-n8n-exporter.py
+Type=simple
+ExecStart=/usr/bin/python3 /opt/xplaincrypto/xplaincrypto-infra/monitoring/enhanced-n8n-exporter.py
 User=root
 WorkingDirectory=/root
 
@@ -36,13 +36,10 @@ EOF
 # Create systemd timer for regular execution
 cat > /etc/systemd/system/xplaincrypto-metrics.timer <<EOF
 [Unit]
-Description=Run XplainCrypto Enhanced Metrics Collection
-Requires=xplaincrypto-metrics.service
-
+Description= XplainCrypto Metrics Timer
 [Timer]
-OnCalendar=*:0/5  # Every 5 minutes
+OnUnitActiveSec=5m
 Persistent=true
-
 [Install]
 WantedBy=timers.target
 EOF

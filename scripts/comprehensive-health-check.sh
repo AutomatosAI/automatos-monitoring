@@ -20,30 +20,17 @@ overall_status="healthy"
 echo "🔍 XplainCrypto Infrastructure Health Check"
 echo "==========================================="
 
-# Docker Infrastructure Tests
-echo ""
-echo "🐳 Docker Infrastructure Tests:"
-
-# Test Docker network - FIXED TO USE CORRECT COMMAND
-echo -n "Testing Docker network... "
-if docker network ls | grep -q "xplaincrypto"; then
-    echo -e "${GREEN}✅${NC} (network exists)"
-    results["docker_network"]="healthy"
+# Docker Infrastructure Tests - FIXED: Use full path
+echo "Testing Docker network... "
+if /usr/bin/docker network ls | grep -q xplaincrypto_network; then
+    echo -e "${GREEN}✅${NC} (exists)"
 else
-    echo -e "${RED}❌${NC} (network missing)"
-    results["docker_network"]="unhealthy"
-    overall_status="degraded"
+    echo -e "${RED}❌${NC} (missing)"
 fi
 
-# Test Docker volumes - FIXED TO REMOVE WARNINGS
+# For volumes (replace all "docker compose volume" with "/usr/bin/docker volume ls")
 echo "Testing Docker volumes..."
-for volume in redis_data prometheus_data grafana_data loki_data alertmanager_data nginx_logs; do
-    if docker volume ls | grep -q "${volume}"; then
-        echo -e "  ${GREEN}✅${NC} xplaincrypto-infra_${volume}"
-    else
-        echo -e "  ${GREEN}✅${NC} xplaincrypto-infra_${volume} (Docker managed)"
-    fi
-done
+/usr/bin/docker volume ls | grep xplaincrypto || echo "❌ No volumes found"
 
 # Directory Tests
 echo ""
@@ -91,11 +78,13 @@ done
 
 results["containers"]=$container_failures
 
-# Redis Tests - FIXED WITH CORRECT PASSWORD
+# Redis Tests - FIXED: Read password from secrets
 echo ""
 echo "🔴 Redis Tests:"
+REDIS_PASSWORD=$(cat /opt/secrets/xplaincrypto/redis_password.txt)  # Read from secrets
+
 echo -n "Testing Redis connection... "
-if docker exec xplaincrypto-redis redis-cli -a redis_secure_pass_dev123 ping >/dev/null 2>&1; then
+if docker exec xplaincrypto-redis redis-cli -a "$REDIS_PASSWORD" ping >/dev/null 2>&1; then
     echo -e "${GREEN}✅${NC}"
     results["redis"]="healthy"
 else

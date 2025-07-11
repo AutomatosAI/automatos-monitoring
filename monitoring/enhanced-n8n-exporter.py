@@ -188,19 +188,19 @@ class EnhancedN8nMetricsExporter:
         """Export metrics to Prometheus Pushgateway"""
         retries = 3
         for attempt in range(retries):
-            try:
-                push_to_gateway(
-                    self.pushgateway_url,
-                    job='xplaincrypto-enhanced-metrics',
-                    registry=self.registry
-                )
-                print(f"✅ Enhanced metrics exported at {datetime.now()}")
-                return True
-            except Exception as e:
+        try:
+            push_to_gateway(
+                self.pushgateway_url,
+                job='xplaincrypto-enhanced-metrics',
+                registry=self.registry
+            )
+            print(f"✅ Enhanced metrics exported at {datetime.now()}")
+            return True
+        except Exception as e:
                 print(f"⚠️ Retry {attempt+1}/{retries}: Error exporting metrics: {e}")
                 time.sleep(5)  # Wait before retry
         print("❌ All retries failed")
-        return False
+            return False
 
     def run(self):
         """Main execution method"""
