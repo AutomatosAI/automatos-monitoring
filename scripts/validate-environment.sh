@@ -68,20 +68,19 @@ else
 fi
 
 echo "🔄 Installing chrony if needed... "
-apt-get update && apt-get install -y chrony 
+apt-get update && apt-get install -y chrony debsig-verify
+# Migrate Docker key
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt-get update
 echo "🔄 Checking and forcing system clock sync... "
-systemctl enable chronyd 
-if ! systemctl start chronyd; then 
-  echo "⚠️ Chrony failed— falling back to timesyncd" 
-  apt-get install -y systemd-timesyncd 
-  timedatectl set-ntp true 
-fi 
-if ! timedatectl set-ntp true; then 
-  echo "⚠️ All NTP failed— forcing hwclock sync" 
-  hwclock --systohc 
-fi 
-chronyc makestep || hwclock --systohc 
-chronyc sources || { echo "⚠️ Clock sync failed— check chronyc sources"; validation_failed=true; } 
+systemctl enable chrony.service
+systemctl start chrony.service
+chronyc makestep
+chronyc sources || { echo "⚠️ Clock sync failed— check chronyc sources"; validation_failed=true; exit 1; }
+sleep 2  # Give time for FS sync
+if [ ! -f ./scripts/validate-environment.sh ]; then echo "❌ Validation script missing"; validation_failed=true; exit 1; fi
 
 echo ""
 if [[ "$validation_failed" == true ]]; then
