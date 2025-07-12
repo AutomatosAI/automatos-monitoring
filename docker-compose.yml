@@ -166,6 +166,7 @@ services:
   redis-exporter:
     image: oliver006/redis_exporter:latest
     container_name: xplaincrypto-redis-exporter
+    user: root  # Add this to run as root for secrets access
     restart: unless-stopped
     environment:
       REDIS_ADDR: redis://redis:6379

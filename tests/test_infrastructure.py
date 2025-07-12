@@ -10,12 +10,13 @@ import time
 import subprocess
 import json
 import sys
+import os
 
 class InfrastructureTests:
     def __init__(self):
         self.redis_host = "localhost"
         self.redis_port = 6379
-        self.redis_password = "redis_secure_pass_dev123"
+        self.redis_password = os.getenv('REDIS_PASSWORD') or open('/opt/secrets/xplaincrypto/redis_password.txt').read().strip()  # Load from env or secrets
         self.grafana_url = "http://localhost:3000"
         self.prometheus_url = "http://localhost:9090"
         self.redis_exporter_url = "http://localhost:9121"
