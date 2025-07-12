@@ -77,6 +77,16 @@ This infrastructure must be deployed **first** before other repositories:
 3. **xplaincrypto-user-database** ← Connects to this network
 4. **xplaincrypto-fastapi** ← Connects to this network
 
+## User Database Integration
+The user database (user_data on port 5433) is now fully deployed from this infra repo, including PgAdmin (port 8081), exporter (port 9188), and backups. DDL/scripts/config are managed in xplaincrypto-database repo.
+
+To deploy/update user DB:
+docker compose up -d postgres-users pgadmin-users postgres-exporter-users backup-users
+
+Access:
+- PostgreSQL: localhost:5433 (user: xplaincrypto)
+- PgAdmin: http://localhost:8081 (admin@xplaincrypto.com / password from secrets)
+
 ---
 **Repository**: https://github.com/Gerard161-Site/xplaincrypto-infra  
 **Part of**: XplainCrypto Platform 

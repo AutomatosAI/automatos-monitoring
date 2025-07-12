@@ -6,23 +6,36 @@ services:
     image: postgres:15
     container_name: xplaincrypto-postgres-crypto
     environment:
-      POSTGRES_DB: crypto_data
-      POSTGRES_USER: mindsdb
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_crypto_password
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
+      PGDATA: /var/lib/postgresql/data/pgdata
+      REDIS_HOST: xplaincrypto-redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0  # MindsDB uses DB 0
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
     secrets:
       - postgres_crypto_password
     volumes:
       - postgres_crypto_data:/var/lib/postgresql/data
+      - ./backups:/backups
     ports:
       - "5432:5432"
     networks:
       - xplaincrypto_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mindsdb -d crypto_data"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
+    command: >
+      postgres
+      -c log_statement=all
+      -c log_destination=stderr
+      -c logging_collector=on
+      -c log_filename=postgresql-%Y-%m-%d_%H%M%S.log
+      -c log_rotation_age=1d
+      -c log_rotation_size=100MB
 
   postgres-users:
     image: postgres:15
@@ -50,23 +63,36 @@ services:
     image: postgres:15
     container_name: xplaincrypto-postgres-fastapi
     environment:
-      POSTGRES_DB: operational_data
-      POSTGRES_USER: fastapi
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_fastapi_password
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
+      PGDATA: /var/lib/postgresql/data/pgdata
+      REDIS_HOST: xplaincrypto-redis
+      REDIS_PORT: 6379
+      REDIS_DB: 2  # FastAPI uses DB 2
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
     secrets:
       - postgres_fastapi_password
     volumes:
       - postgres_fastapi_data:/var/lib/postgresql/data
+      - ./backups:/backups
     ports:
       - "5434:5432"
     networks:
       - xplaincrypto_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fastapi -d operational_data"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
+    command: >
+      postgres
+      -c log_statement=all
+      -c log_destination=stderr
+      -c logging_collector=on
+      -c log_filename=postgresql-%Y-%m-%d_%H%M%S.log
+      -c log_rotation_age=1d
+      -c log_rotation_size=100MB
 
   # Database Exporters
   postgres-exporter-crypto:
@@ -301,6 +327,8 @@ secrets:
   # Application passwords
   grafana_admin_password:
     file: /opt/secrets/xplaincrypto/grafana_admin_password.txt
+  pgadmin_password:
+    file: /opt/secrets/xplaincrypto/pgadmin_password.txt
 
 # ====================
 # VOLUMES - SINGLE DEFINITION
@@ -327,6 +355,8 @@ volumes:
     driver: local
   promtail-data: 
   pushgateway-data: 
+  pgadmin_data:
+    driver: local
 
 # ====================
 # NETWORKS - SINGLE DEFINITION
@@ -335,5 +365,12 @@ networks:
   xplaincrypto_network: 
     # external: true  (removed for dev auto-creation) 
   monitoring: 
+    # external: true  (removed for dev auto-creation) 
+    
+  backup-crypto:
+    # external: true  (removed for dev auto-creation)
+  backup-fastapi:
+    # external: true  (removed for dev auto-creation)
+  pgadmin:
     # external: true  (removed for dev auto-creation) 
     
