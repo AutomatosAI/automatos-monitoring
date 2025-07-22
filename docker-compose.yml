@@ -247,7 +247,7 @@ services:
       - ./monitoring/loki/local-config.yaml:/etc/loki/local-config.yaml 
     command: -config.file=/etc/loki/local-config.yaml 
     networks: 
-      - monitoring 
+      - xplaincrypto_network 
     restart: unless-stopped 
 
   promtail: 
@@ -258,7 +258,7 @@ services:
       - ./monitoring/promtail/promtail-config.yaml:/etc/promtail/config.yml 
     command: -config.file=/etc/promtail/config.yml 
     networks: 
-      - monitoring 
+      - xplaincrypto_network 
     restart: unless-stopped 
   pushgateway: 
     image: prom/pushgateway:latest 
@@ -266,7 +266,7 @@ services:
     ports: 
       - "9091:9091" 
     networks: 
-      - monitoring 
+      - xplaincrypto_network 
     restart: unless-stopped 
 
   # ====================
@@ -372,8 +372,9 @@ networks:
   xplaincrypto_network: 
     driver: bridge  # CREATE the network (remove external: true)
     name: xplaincrypto_network  # Explicit name
-  monitoring: 
-    driver: bridge  # CREATE monitoring network
+  # DELETE THIS:
+  # monitoring: 
+  #   driver: bridge  # CREATE monitoring network
     
   backup-crypto:
     # external: true  (removed for dev auto-creation)
