@@ -25,7 +25,7 @@ class InfrastructureTests:
         
     def test_redis_connection(self):
         """Test Redis connectivity"""
-        print("🔴 Testing Redis connection...")
+        print("📈 Testing Redis connection...")
         try:
             r = redis.Redis(
                 host=self.redis_host,

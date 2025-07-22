@@ -364,9 +364,10 @@ volumes:
 # ====================
 networks: 
   xplaincrypto_network: 
-    # external: true  (removed for dev auto-creation) 
+    driver: bridge  # CREATE the network (remove external: true)
+    name: xplaincrypto_network  # Explicit name
   monitoring: 
-    # external: true  (removed for dev auto-creation) 
+    driver: bridge  # CREATE monitoring network
     
   backup-crypto:
     # external: true  (removed for dev auto-creation)
