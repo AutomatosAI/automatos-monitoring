@@ -122,3 +122,4 @@ automatos-monitoring/
 ├── railway/                        # Railway service configs
 └── scripts/                        # Setup & health checks
 ```
+# automatos-monitoring
