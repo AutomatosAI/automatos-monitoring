@@ -2,7 +2,7 @@
 set -e
 
 # Fix ownership on Railway volume mount (mounted as root)
-chown -R grafana:root /var/lib/grafana /etc/grafana/provisioning
+chown -R 472:0 /var/lib/grafana /etc/grafana/provisioning
 
-# Drop to grafana user and start
-exec su-exec grafana /run.sh
+# Run Grafana's default entrypoint as grafana user
+exec su grafana -s /bin/sh -c '/run.sh'
