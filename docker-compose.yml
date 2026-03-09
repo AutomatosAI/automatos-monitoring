@@ -1,6 +1,5 @@
-# Automatos Monitoring Stack
-# Local development compose — mirrors Railway deployment
-# For Railway, each service is deployed independently via railway/ configs
+# Automatos Monitoring Stack — Local Development
+# For Railway, each service deploys from services/<name>/Dockerfile
 
 services:
   # ─────────────────────────────────────────────
@@ -13,8 +12,8 @@ services:
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - ./services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./services/prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -48,8 +47,8 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=false
       - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/platform-overview.json
     volumes:
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./services/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./services/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     networks:
       - monitoring_internal
@@ -72,7 +71,7 @@ services:
     ports:
       - "${LOKI_PORT:-3100}:3100"
     volumes:
-      - ./monitoring/loki/local-config.yaml:/etc/loki/config.yaml:ro
+      - ./services/loki/loki-config.yaml:/etc/loki/config.yaml:ro
       - loki_data:/loki
     command: -config.file=/etc/loki/config.yaml
     networks:
@@ -85,7 +84,6 @@ services:
 
   # ─────────────────────────────────────────────
   # Log Relay (Railway Log Drain → Loki)
-  # In local dev, also accepts direct HTTP log pushes
   # ─────────────────────────────────────────────
   log-relay:
     build:
@@ -115,7 +113,7 @@ services:
     ports:
       - "${ALERTMANAGER_PORT:-9093}:9093"
     volumes:
-      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./services/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - ./secrets/ingest-token:/etc/alertmanager/secrets/ingest-token:ro
       - alertmanager_data:/alertmanager
     command:

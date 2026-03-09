@@ -1,5 +1,6 @@
 [build]
-dockerfilePath = "railway/grafana/Dockerfile"
+dockerfilePath = "services/grafana/Dockerfile"
+watchPatterns = ["services/grafana/**"]
 
 [deploy]
 healthcheckPath = "/api/health"

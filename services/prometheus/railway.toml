@@ -1,5 +1,6 @@
 [build]
-dockerfilePath = "railway/prometheus/Dockerfile"
+dockerfilePath = "services/prometheus/Dockerfile"
+watchPatterns = ["services/prometheus/**"]
 
 [deploy]
 healthcheckPath = "/-/healthy"

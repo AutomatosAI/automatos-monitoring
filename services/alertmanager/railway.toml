@@ -1,5 +1,6 @@
 [build]
-dockerfilePath = "railway/alertmanager/Dockerfile"
+dockerfilePath = "services/alertmanager/Dockerfile"
+watchPatterns = ["services/alertmanager/**"]
 
 [deploy]
 healthcheckPath = "/-/healthy"

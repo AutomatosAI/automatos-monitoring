@@ -1,13 +1,10 @@
 FROM grafana/grafana:10.4.0
 
-# Provisioning configs
-COPY monitoring/grafana/provisioning /etc/grafana/provisioning
-
-# Dashboards
-COPY monitoring/grafana/dashboards /var/lib/grafana/dashboards
+COPY provisioning /etc/grafana/provisioning
+COPY dashboards /var/lib/grafana/dashboards
 
 # Railway-specific datasource overrides (uses railway.internal DNS)
-COPY railway/grafana/datasources-railway.yml /etc/grafana/provisioning/datasources/datasources.yml
+COPY datasources-railway.yml /etc/grafana/provisioning/datasources/datasources.yml
 
 ENV GF_USERS_ALLOW_SIGN_UP=false
 ENV GF_AUTH_ANONYMOUS_ENABLED=false

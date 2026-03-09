@@ -1,5 +1,6 @@
 [build]
-dockerfilePath = "railway/loki/Dockerfile"
+dockerfilePath = "services/loki/Dockerfile"
+watchPatterns = ["services/loki/**"]
 
 [deploy]
 healthcheckPath = "/ready"

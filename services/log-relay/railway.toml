@@ -1,5 +1,6 @@
 [build]
-dockerfilePath = "railway/log-relay/Dockerfile"
+dockerfilePath = "services/log-relay/Dockerfile"
+watchPatterns = ["services/log-relay/**"]
 
 [deploy]
 healthcheckPath = "/health"

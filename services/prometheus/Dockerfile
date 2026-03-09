@@ -1,7 +1,7 @@
 FROM prom/prometheus:v2.51.0
 
-COPY monitoring/prometheus/prometheus-railway.yml /etc/prometheus/prometheus.yml
-COPY monitoring/prometheus/rules /etc/prometheus/rules
+COPY prometheus-railway.yml /etc/prometheus/prometheus.yml
+COPY rules /etc/prometheus/rules
 
 EXPOSE 9090
 
