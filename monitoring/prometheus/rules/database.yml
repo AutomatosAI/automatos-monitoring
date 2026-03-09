@@ -1,0 +1,136 @@
+groups:
+  - name: automatos-postgresql
+    rules:
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL instance {{ $labels.instance }} is unreachable."
+          runbook: "Check Railway PostgreSQL service. Verify disk space and connection limits."
+
+      - alert: HighConnections
+        expr: pg_stat_activity_count > 150
+        for: 5m
+        labels:
+          severity: warning
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL connections high ({{ $value }}/200)"
+          description: "Connection count has exceeded 150 for over 5 minutes. Max is 200."
+          runbook: "Check for connection leaks. Review pg_stat_activity for idle connections."
+
+      - alert: SlowQueries
+        expr: rate(pg_stat_activity_max_tx_duration{state="active"}[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL has slow queries"
+          description: "Active transaction duration exceeding 1s for over 5 minutes."
+          runbook: "Check pg_stat_statements for slow queries. Consider adding indexes."
+
+      - alert: DeadTuples
+        expr: pg_stat_user_tables_n_dead_tup > 10000
+        for: 10m
+        labels:
+          severity: warning
+          service: postgresql
+        annotations:
+          summary: "High dead tuple count: {{ $value }}"
+          description: "Table {{ $labels.relname }} has over 10,000 dead tuples. VACUUM may be needed."
+          runbook: "Run VACUUM ANALYZE on affected tables. Check autovacuum settings."
+
+      - alert: CacheHitLow
+        expr: pg_stat_database_blks_hit / (pg_stat_database_blks_hit + pg_stat_database_blks_read) < 0.95
+        for: 10m
+        labels:
+          severity: warning
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL cache hit ratio low: {{ $value | humanizePercentage }}"
+          description: "Cache hit ratio below 95% for 10 minutes. Queries are hitting disk too often."
+          runbook: "Consider increasing shared_buffers. Review query patterns for sequential scans."
+
+      - alert: DBSizeGrowth
+        expr: delta(pg_database_size_bytes[24h]) > 1073741824
+        for: 1h
+        labels:
+          severity: info
+          service: postgresql
+        annotations:
+          summary: "Database grew by {{ $value | humanize1024 }} in 24h"
+          description: "Database {{ $labels.datname }} grew by more than 1GB in the last 24 hours."
+          runbook: "Review recent data ingestion patterns. Check for large table growth."
+
+  - name: automatos-redis
+    rules:
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "Redis is down"
+          description: "Redis instance is unreachable. Session storage, caching, and task queues are affected."
+          runbook: "Check Railway Redis service. Verify memory limits."
+
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes > 209715200
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "Redis memory high: {{ $value | humanize1024 }} / 256MB"
+          description: "Redis memory usage above 200MB (max 256MB). Eviction may begin."
+          runbook: "Check key distribution with redis-cli INFO keyspace. Review TTLs on cached data."
+
+      - alert: RedisHighMemoryCritical
+        expr: redis_memory_used_bytes > 251658240
+        for: 2m
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "Redis memory critical: {{ $value | humanize1024 }} / 256MB"
+          description: "Redis at 240MB+. Active eviction likely occurring. Data loss risk."
+          runbook: "Immediate: flush expired keys. Review maxmemory-policy. Consider increasing Redis memory."
+
+      - alert: RedisEvictedKeys
+        expr: increase(redis_evicted_keys_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "Redis is evicting keys"
+          description: "{{ $value }} keys evicted in the last 5 minutes. Memory pressure detected."
+          runbook: "Check redis-cli INFO memory. Review key TTLs and maxmemory-policy."
+
+      - alert: RedisHighLatency
+        expr: redis_commands_duration_seconds_total / redis_commands_processed_total > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "Redis command latency high: {{ $value | humanizeDuration }}"
+          description: "Average Redis command latency exceeds 10ms for 5 minutes."
+          runbook: "Check for slow commands with SLOWLOG GET. Review Lua scripts and large key operations."
+
+      - alert: RedisHighClients
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "Redis connected clients high: {{ $value }}"
+          description: "Over 100 clients connected to Redis. Possible connection leak."
+          runbook: "Check CLIENT LIST for idle connections. Review connection pooling in services."

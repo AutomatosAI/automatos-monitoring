@@ -1,8 +1,27 @@
-
-# NEVER COMMIT SECRETS
+# Secrets — never commit
+.env
+.env.*
+!.env.example
 secrets/
 *.key
 *.pem
-*.txt
-.env
-.env.*
+
+# Data volumes (local)
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

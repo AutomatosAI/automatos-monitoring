@@ -1,3 +1,12 @@
+# Prometheus config for Railway deployment
+# Uses Railway private networking DNS: <service>.railway.internal
+#
+# Actual service names from Railway project "Automatos AI":
+#   Backend API:  automatos-ai.railway.internal
+#   PostgreSQL:   pgvector.railway.internal:5432
+#   Redis:        redis.railway.internal:6379
+#   Agent Worker: agent-opt-worker.railway.internal:8080
+
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -12,7 +21,7 @@ alerting:
   alertmanagers:
     - static_configs:
         - targets:
-            - "alertmanager:9093"
+            - "alertmanager.railway.internal:9093"
 
 scrape_configs:
   # ─────────────────────────────────────────────
@@ -23,20 +32,22 @@ scrape_configs:
   - job_name: "automatos-backend"
     metrics_path: /health
     scrape_interval: 30s
+    scrape_timeout: 10s
     static_configs:
-      - targets: ["backend:8000"]
+      - targets: ["automatos-ai.railway.internal:8000"]
         labels:
           service: "backend"
           component: "api"
 
-  # Workspace Worker health
-  - job_name: "automatos-workspace-worker"
+  # Agent Optimization Worker
+  - job_name: "automatos-agent-worker"
     metrics_path: /health
     scrape_interval: 30s
+    scrape_timeout: 10s
     static_configs:
-      - targets: ["workspace-worker:8081"]
+      - targets: ["agent-opt-worker.railway.internal:8080"]
         labels:
-          service: "workspace-worker"
+          service: "agent-worker"
           component: "worker"
 
   # ─────────────────────────────────────────────
@@ -46,15 +57,15 @@ scrape_configs:
   - job_name: "postgres-exporter"
     scrape_interval: 15s
     static_configs:
-      - targets: ["postgres-exporter:9187"]
+      - targets: ["postgres-exporter.railway.internal:9187"]
         labels:
           service: "postgresql"
-          database: "orchestrator_db"
+          database: "railway"
 
   - job_name: "redis-exporter"
     scrape_interval: 15s
     static_configs:
-      - targets: ["redis-exporter:9121"]
+      - targets: ["redis-exporter.railway.internal:9121"]
         labels:
           service: "redis"
 
@@ -70,13 +81,13 @@ scrape_configs:
   - job_name: "loki"
     scrape_interval: 30s
     static_configs:
-      - targets: ["loki:3100"]
+      - targets: ["loki.railway.internal:3100"]
         labels:
           service: "loki"
 
   - job_name: "alertmanager"
     scrape_interval: 30s
     static_configs:
-      - targets: ["alertmanager:9093"]
+      - targets: ["alertmanager.railway.internal:9093"]
         labels:
           service: "alertmanager"

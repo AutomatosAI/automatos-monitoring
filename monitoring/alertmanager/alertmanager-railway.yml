@@ -1,3 +1,6 @@
+# AlertManager config for Railway deployment
+# Webhook target uses actual Railway private DNS for the backend
+
 global:
   resolve_timeout: 5m
 
@@ -9,7 +12,6 @@ route:
   receiver: "automatos-default"
 
   routes:
-    # Critical alerts — fast grouping, hourly repeat
     - match:
         severity: critical
       receiver: "automatos-critical"
@@ -18,7 +20,6 @@ route:
       repeat_interval: 1h
       continue: false
 
-    # Warning alerts — standard grouping
     - match:
         severity: warning
       receiver: "automatos-warning"
@@ -27,7 +28,6 @@ route:
       repeat_interval: 4h
       continue: false
 
-    # Info alerts — slow grouping, infrequent repeat
     - match:
         severity: info
       receiver: "automatos-info"
@@ -37,7 +37,6 @@ route:
       continue: false
 
 inhibit_rules:
-  # Critical service-down suppresses warning-level alerts for the same service
   - source_matchers:
       - severity="critical"
       - alertname=~".*Down"
@@ -45,14 +44,12 @@ inhibit_rules:
       - severity="warning"
     equal: ["service"]
 
-  # PostgreSQL down suppresses all database performance alerts
   - source_matchers:
       - alertname="PostgreSQLDown"
     target_matchers:
       - alertname=~"(HighConnections|SlowQueries|DeadTuples|CacheHitLow|DBSizeGrowth)"
     equal: ["service"]
 
-  # Redis down suppresses all Redis performance alerts
   - source_matchers:
       - alertname="RedisDown"
     target_matchers:
@@ -62,7 +59,7 @@ inhibit_rules:
 receivers:
   - name: "automatos-default"
     webhook_configs:
-      - url: "http://backend:8000/api/alerts/ingest"
+      - url: "http://automatos-ai.railway.internal:8000/api/alerts/ingest"
         send_resolved: true
         http_config:
           authorization:
@@ -74,7 +71,7 @@ receivers:
 
   - name: "automatos-critical"
     webhook_configs:
-      - url: "http://backend:8000/api/alerts/ingest"
+      - url: "http://automatos-ai.railway.internal:8000/api/alerts/ingest"
         send_resolved: true
         http_config:
           authorization:
@@ -86,7 +83,7 @@ receivers:
 
   - name: "automatos-warning"
     webhook_configs:
-      - url: "http://backend:8000/api/alerts/ingest"
+      - url: "http://automatos-ai.railway.internal:8000/api/alerts/ingest"
         send_resolved: true
         http_config:
           authorization:
@@ -98,7 +95,7 @@ receivers:
 
   - name: "automatos-info"
     webhook_configs:
-      - url: "http://backend:8000/api/alerts/ingest"
+      - url: "http://automatos-ai.railway.internal:8000/api/alerts/ingest"
         send_resolved: true
         http_config:
           authorization:

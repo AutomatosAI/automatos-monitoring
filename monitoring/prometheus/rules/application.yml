@@ -1,0 +1,81 @@
+groups:
+  - name: automatos-backend
+    rules:
+      # These rules require Phase 2 /metrics endpoint on the backend.
+      # Placeholder expressions — update once prometheus_client is instrumented.
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{job="automatos-backend", status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="automatos-backend"}[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: backend
+        annotations:
+          summary: "Backend 5xx error rate: {{ $value | humanizePercentage }}"
+          description: "More than 5% of requests returning 5xx errors for 5 minutes."
+          runbook: "Check backend logs in Grafana Logs Explorer. Look for stack traces and dependency failures."
+
+      - alert: SlowResponses
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="automatos-backend"}[5m]))
+          > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: backend
+        annotations:
+          summary: "Backend p95 response time: {{ $value | humanizeDuration }}"
+          description: "95th percentile response time exceeds 5 seconds."
+          runbook: "Check for slow DB queries, external API timeouts, or heavy LLM calls."
+
+  - name: automatos-workspace-worker
+    rules:
+      # Queue depth — requires custom metrics from worker or Redis exporter queries
+      - alert: QueueBacklog
+        expr: |
+          sum(redis_key_size{key=~"workspace:tasks:.*"}) > 20
+        for: 10m
+        labels:
+          severity: warning
+          service: workspace-worker
+        annotations:
+          summary: "Task queue backlog: {{ $value }} pending tasks"
+          description: "More than 20 tasks pending in workspace queues for 10 minutes."
+          runbook: "Check worker health. Increase WORKER_CONCURRENCY if worker is healthy but slow."
+
+      - alert: QueueCritical
+        expr: |
+          sum(redis_key_size{key=~"workspace:tasks:.*"}) > 50
+        for: 5m
+        labels:
+          severity: critical
+          service: workspace-worker
+        annotations:
+          summary: "Task queue critical: {{ $value }} pending tasks"
+          description: "Over 50 tasks pending. Worker may be down or severely overloaded."
+          runbook: "Verify worker is running. Check for stuck tasks. Consider scaling worker instances."
+
+  - name: automatos-agent-heartbeats
+    rules:
+      # These rules require the backend to expose heartbeat metrics
+      # via /metrics endpoint (Phase 2) or custom recording rules
+
+      - alert: HeartbeatFailureRate
+        expr: |
+          sum(rate(automatos_heartbeat_failures_total[1h]))
+          /
+          sum(rate(automatos_heartbeat_executions_total[1h]))
+          > 0.25
+        for: 15m
+        labels:
+          severity: warning
+          service: backend
+          component: heartbeats
+        annotations:
+          summary: "Agent heartbeat failure rate: {{ $value | humanizePercentage }}"
+          description: "More than 25% of heartbeat executions failing in the last hour."
+          runbook: "Check heartbeat logs. Verify LLM API connectivity. Review failing agent configurations."

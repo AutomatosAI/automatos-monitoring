@@ -1,385 +1,174 @@
+# Automatos Monitoring Stack
+# Local development compose — mirrors Railway deployment
+# For Railway, each service is deployed independently via railway/ configs
+
 services:
-  # ====================
-  # DATABASE SERVICES
-  # ====================
-  postgres-crypto:
-    image: postgres:15
-    container_name: xplaincrypto-postgres-crypto
-    environment:
-      POSTGRES_DB: crypto_data
-      POSTGRES_USER: mindsdb
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_crypto_password
-      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
-      PGDATA: /var/lib/postgresql/data/pgdata
-      REDIS_HOST: xplaincrypto-redis
-      REDIS_PORT: 6379
-      REDIS_DB: 0  # MindsDB uses DB 0
-      REDIS_PASSWORD_FILE: /run/secrets/redis_password
-    secrets:
-      - postgres_crypto_password
-    volumes:
-      - postgres_crypto_data:/var/lib/postgresql/data
-      - ./backups:/backups
-    ports:
-      - "5432:5432"
-    networks:
-      - xplaincrypto_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mindsdb -d crypto_data"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    restart: unless-stopped
-    command: >
-      postgres
-      -c log_statement=all
-      -c log_destination=stderr
-      -c logging_collector=on
-      -c log_filename=postgresql-%Y-%m-%d_%H%M%S.log
-      -c log_rotation_age=1d
-      -c log_rotation_size=100MB
-
-  postgres-users:
-    image: postgres:15
-    container_name: xplaincrypto-postgres-users
-    environment:
-      POSTGRES_DB: user_data
-      POSTGRES_USER: xplaincrypto
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_users_password
-    secrets:
-      - postgres_users_password
-    volumes:
-      - postgres_users_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
-    networks:
-      - xplaincrypto_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U xplaincrypto -d user_data"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-
-  postgres-fastapi:
-    image: postgres:15
-    container_name: xplaincrypto-postgres-fastapi
-    environment:
-      POSTGRES_DB: operational_data
-      POSTGRES_USER: fastapi
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_fastapi_password
-      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
-      PGDATA: /var/lib/postgresql/data/pgdata
-      REDIS_HOST: xplaincrypto-redis
-      REDIS_PORT: 6379
-      REDIS_DB: 2  # FastAPI uses DB 2
-      REDIS_PASSWORD_FILE: /run/secrets/redis_password
-    secrets:
-      - postgres_fastapi_password
-    volumes:
-      - postgres_fastapi_data:/var/lib/postgresql/data
-      - ./backups:/backups
-    ports:
-      - "5434:5432"
-    networks:
-      - xplaincrypto_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fastapi -d operational_data"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    restart: unless-stopped
-    command: >
-      postgres
-      -c log_statement=all
-      -c log_destination=stderr
-      -c logging_collector=on
-      -c log_filename=postgresql-%Y-%m-%d_%H%M%S.log
-      -c log_rotation_age=1d
-      -c log_rotation_size=100MB
-
-  # Database Exporters
-  postgres-exporter-crypto:
-    image: prometheuscommunity/postgres-exporter:latest
-    container_name: xplaincrypto-postgres-exporter-crypto
-    environment:
-      DATA_SOURCE_NAME_FILE: /run/secrets/postgres_crypto_dsn
-    secrets:
-      - postgres_crypto_dsn
-    ports:
-      - "9187:9187"
-    networks:
-      - xplaincrypto_network
-    depends_on:
-      - postgres-crypto
-    restart: unless-stopped
-
-  postgres-exporter-users:
-    image: prometheuscommunity/postgres-exporter:latest
-    container_name: xplaincrypto-postgres-exporter-users
-    environment:
-      DATA_SOURCE_NAME_FILE: /run/secrets/postgres_users_dsn
-    secrets:
-      - postgres_users_dsn
-    ports:
-      - "9188:9187"
-    networks:
-      - xplaincrypto_network
-    depends_on:
-      - postgres-users
-    restart: unless-stopped
-
-  postgres-exporter-fastapi:
-    image: prometheuscommunity/postgres-exporter:latest
-    container_name: xplaincrypto-postgres-exporter-fastapi
-    environment:
-      DATA_SOURCE_NAME_FILE: /run/secrets/postgres_fastapi_dsn
-    secrets:
-      - postgres_fastapi_dsn
-    ports:
-      - "9189:9187"
-    networks:
-      - xplaincrypto_network
-    depends_on:
-      - postgres-fastapi
-    restart: unless-stopped
-
-  # ====================
-  # CACHE & STORAGE SERVICES
-  # ====================
-  redis:
-    image: redis:7-alpine
-    container_name: xplaincrypto-redis
-    command: sh -c 'redis-server --requirepass "$$(cat /run/secrets/redis_password)"'
-    secrets:
-      - redis_password
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "redis_secure_pass_dev123", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - xplaincrypto_network
-    restart: unless-stopped
-
-  # Redis Exporter
-  redis-exporter:
-    image: oliver006/redis_exporter:latest
-    container_name: xplaincrypto-redis-exporter
-    user: root  # Add this to run as root for secrets access
-    restart: unless-stopped
-    environment:
-      REDIS_ADDR: redis://redis:6379
-      REDIS_PASSWORD_FILE: /run/secrets/redis_password
-    secrets:
-      - redis_password
-    ports:
-      - "9121:9121"
-    depends_on:
-      - redis
-    networks:
-      - xplaincrypto_network
-
-  # ====================
-  # MONITORING SERVICES
-  # ====================
+  # ─────────────────────────────────────────────
+  # Metrics Collection
+  # ─────────────────────────────────────────────
   prometheus:
-    image: prom/prometheus:latest
-    container_name: xplaincrypto-prometheus
+    image: prom/prometheus:v2.51.0
+    container_name: automatos_prometheus
+    restart: unless-stopped
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
-      - prometheus_data:/prometheus
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}"
+      - "--web.enable-lifecycle"
+      - "--web.enable-admin-api"
     networks:
-      - xplaincrypto_network
-    restart: unless-stopped
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: xplaincrypto-grafana
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD_FILE: /run/secrets/grafana_admin_password
-      GF_SECURITY_ADMIN_PASSWORD: grafana_secure_pass_123  # Fallback
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
-    depends_on:
-      - prometheus
-      - redis
-    networks:
-      - xplaincrypto_network
-    restart: unless-stopped
+      - automatos_network
+      - monitoring_internal
     healthcheck:
-      test: curl -f http://localhost:3000/api/health
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
       retries: 3
-  
-  alertmanager:
-    image: prom/alertmanager:latest
-    container_name: xplaincrypto-alertmanager
+
+  # ─────────────────────────────────────────────
+  # Dashboards & Visualisation
+  # ─────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: automatos_grafana
+    restart: unless-stopped
     ports:
-      - "9093:9093"
+      - "${GRAFANA_PORT:-3030}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-automatos-dev}
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3030}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/platform-overview.json
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - monitoring_internal
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ─────────────────────────────────────────────
+  # Log Aggregation
+  # ─────────────────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: automatos_loki
+    restart: unless-stopped
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    volumes:
+      - ./monitoring/loki/local-config.yaml:/etc/loki/config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/config.yaml
+    networks:
+      - monitoring_internal
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ─────────────────────────────────────────────
+  # Log Relay (Railway Log Drain → Loki)
+  # In local dev, also accepts direct HTTP log pushes
+  # ─────────────────────────────────────────────
+  log-relay:
+    build:
+      context: ./services/log-relay
+      dockerfile: Dockerfile
+    container_name: automatos_log_relay
+    restart: unless-stopped
+    ports:
+      - "${LOG_RELAY_PORT:-3200}:8080"
+    environment:
+      - LOKI_PUSH_URL=http://loki:3100/loki/api/v1/push
+      - LOG_RELAY_SECRET=${LOG_RELAY_SECRET:-dev-secret}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    networks:
+      - monitoring_internal
+    depends_on:
+      loki:
+        condition: service_healthy
+
+  # ─────────────────────────────────────────────
+  # Alert Routing
+  # ─────────────────────────────────────────────
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: automatos_alertmanager
+    restart: unless-stopped
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
     volumes:
       - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./secrets/ingest-token:/etc/alertmanager/secrets/ingest-token:ro
       - alertmanager_data:/alertmanager
-    networks:
-      - xplaincrypto_network
-    restart: unless-stopped
-
-  loki: 
-    image: grafana/loki:latest 
-    container_name: xplaincrypto-loki 
-    ports: 
-      - "3100:3100" 
-    volumes: 
-      - loki-data:/loki 
-      - ./monitoring/loki/local-config.yaml:/etc/loki/local-config.yaml 
-    command: -config.file=/etc/loki/local-config.yaml 
-    networks: 
-      - xplaincrypto_network 
-    restart: unless-stopped 
-
-  promtail: 
-    image: grafana/promtail:latest 
-    container_name: xplaincrypto-promtail 
-    volumes: 
-      - /var/log:/var/log 
-      - ./monitoring/promtail/promtail-config.yaml:/etc/promtail/config.yml 
-    command: -config.file=/etc/promtail/config.yml 
-    networks: 
-      - xplaincrypto_network 
-    restart: unless-stopped 
-  pushgateway: 
-    image: prom/pushgateway:latest 
-    container_name: xplaincrypto-pushgateway 
-    ports: 
-      - "9091:9091" 
-    networks: 
-      - xplaincrypto_network 
-    restart: unless-stopped 
-
-  # ====================
-  # INFRASTRUCTURE SERVICES
-  # ====================
-  nginx:
-    image: nginx:alpine
-    container_name: xplaincrypto-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - grafana
-      - prometheus
-      - alertmanager
-    networks:
-      - xplaincrypto_network
-
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: xplaincrypto-node-exporter
-    restart: unless-stopped
-    ports:
-      - "9100:9100"
     command:
-      - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
     networks:
-      - xplaincrypto_network
+      - automatos_network
+      - monitoring_internal
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
-  # ====================
-# SECRETS CONFIGURATION
-  # ====================
-secrets:
-  # Database passwords
-  postgres_crypto_password:
-    file: /opt/secrets/xplaincrypto/postgres_crypto_password.txt
-  postgres_users_password:
-    file: /opt/secrets/xplaincrypto/postgres_users_password.txt
-  postgres_fastapi_password:
-    file: /opt/secrets/xplaincrypto/postgres_fastapi_password.txt
-  
-  # Redis password
-  redis_password:
-    file: /opt/secrets/xplaincrypto/redis_password.txt
-  
-  # Database connection strings for exporters
-  postgres_crypto_dsn:
-    file: /opt/secrets/xplaincrypto/postgres_crypto_dsn.txt
-  postgres_users_dsn:
-    file: /opt/secrets/xplaincrypto/postgres_users_dsn.txt
-  postgres_fastapi_dsn:
-    file: /opt/secrets/xplaincrypto/postgres_fastapi_dsn.txt
-  
-  # Application passwords
-  grafana_admin_password:
-    file: /opt/secrets/xplaincrypto/grafana_admin_password.txt
-  pgadmin_password:
-    file: /opt/secrets/xplaincrypto/pgadmin_password.txt
+  # ─────────────────────────────────────────────
+  # Exporters
+  # ─────────────────────────────────────────────
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: automatos_postgres_exporter
+    restart: unless-stopped
+    ports:
+      - "${PG_EXPORTER_PORT:-9187}:9187"
+    environment:
+      - DATA_SOURCE_NAME=${POSTGRES_CONNECTION_STRING:-postgresql://postgres:postgres@postgres:5432/orchestrator_db?sslmode=disable}
+    networks:
+      - automatos_network
+      - monitoring_internal
 
-# ====================
-# VOLUMES - SINGLE DEFINITION
-# ====================
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.58.0
+    container_name: automatos_redis_exporter
+    restart: unless-stopped
+    ports:
+      - "${REDIS_EXPORTER_PORT:-9121}:9121"
+    environment:
+      - REDIS_ADDR=redis://default:${REDIS_PASSWORD:-redis}@redis:6379
+    networks:
+      - automatos_network
+      - monitoring_internal
+
+networks:
+  automatos_network:
+    external: true
+  monitoring_internal:
+    driver: bridge
+
 volumes:
-  # Database Data
-  postgres_crypto_data:
-    driver: local
-  postgres_users_data:
-    driver: local
-  postgres_fastapi_data:
-    driver: local
-      
-  # Application Data
-  redis_data:
-    driver: local
-  grafana_data:
-    driver: local
   prometheus_data:
-    driver: local
+    name: automatos_prometheus_data
+  grafana_data:
+    name: automatos_grafana_data
+  loki_data:
+    name: automatos_loki_data
   alertmanager_data:
-    driver: local
-  loki-data:
-    driver: local
-  promtail-data: 
-  pushgateway-data: 
-  pgadmin_data:
-    driver: local
-
-# ====================
-# NETWORKS - SINGLE DEFINITION
-# ====================
-networks: 
-  xplaincrypto_network: 
-    driver: bridge  # CREATE the network (remove external: true)
-    name: xplaincrypto_network  # Explicit name
-  # DELETE THIS:
-  # monitoring: 
-  #   driver: bridge  # CREATE monitoring network
-    
-  backup-crypto:
-    # external: true  (removed for dev auto-creation)
-  backup-fastapi:
-    # external: true  (removed for dev auto-creation)
-  pgadmin:
-    # external: true  (removed for dev auto-creation) 
-    
+    name: automatos_alertmanager_data

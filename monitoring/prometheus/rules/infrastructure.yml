@@ -1,0 +1,37 @@
+groups:
+  - name: automatos-service-health
+    rules:
+      # Any monitored service is unreachable
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "{{ $labels.instance }} has been unreachable for over 1 minute."
+          runbook: "Check Railway dashboard for service health. Restart service if needed."
+
+      # Backend API specifically down
+      - alert: BackendDown
+        expr: up{job="automatos-backend"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: backend
+        annotations:
+          summary: "Automatos Backend API is down"
+          description: "Backend health endpoint unreachable for 30s. All API functionality affected."
+          runbook: "Check Railway logs for backend service. Look for OOM, crash loops, or dependency failures."
+
+      # Workspace Worker down
+      - alert: WorkerDown
+        expr: up{job="automatos-workspace-worker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: workspace-worker
+        annotations:
+          summary: "Workspace Worker is down"
+          description: "Worker health endpoint unreachable for 2 minutes. Task execution is halted."
+          runbook: "Check workspace-worker logs. Verify Redis connectivity. Restart worker service."

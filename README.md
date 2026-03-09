@@ -1,93 +1,124 @@
-# 🏗️ XplainCrypto Infrastructure
+# Automatos Monitoring Stack
 
-**Core infrastructure services for the XplainCrypto platform**
+Infrastructure observability for the [Automatos AI Platform](https://github.com/Automatos-AI-Platform/automatos-ai).
 
-## 🌟 What This Provides
+**PRD:** [PRD-73 — Observability & Monitoring Stack](../automatos-ai/docs/PRDS/73-OBSERVABILITY-MONITORING-STACK.md)
 
-- ✅ **Single Redis Instance** (multiple databases for all services)
-- ✅ **Complete Monitoring Stack** (Prometheus, Grafana)
-- ✅ **Centralized Secrets Management** (all API keys)
-- ✅ **Shared Docker Network** (`xplaincrypto_network`)
-- ✅ **Health Monitoring & Exporters**
+## Architecture
 
-## 🚀 Quick Start
+| Service | Purpose | Port |
+|---------|---------|------|
+| Prometheus | Metrics collection & alerting rules | 9090 |
+| Grafana | Dashboards & visualisation | 3030 |
+| Loki | Log aggregation | 3100 |
+| Log Relay | Railway log drain → Loki transformer | 3200 |
+| AlertManager | Alert routing to backend webhook | 9093 |
+| Postgres Exporter | PostgreSQL metrics for Prometheus | 9187 |
+| Redis Exporter | Redis metrics for Prometheus | 9121 |
+
+## Quick Start (Local)
+
+### Prerequisites
+
+- Docker & Docker Compose
+- `automatos_network` Docker network (created by automatos-ai)
+- automatos-ai services running (postgres, redis, backend)
+
+### Setup
 
 ```bash
-# Clone repository
-git clone git@github.com:Gerard161-Site/xplaincrypto-infra.git
-cd xplaincrypto-infra
+# 1. Create .env from template
+cp .env.example .env
+# Edit .env with your database/redis passwords
 
+# 2. Ensure the shared network exists
+docker network create automatos_network 2>/dev/null || true
 
-# Deploy infrastructure
-docker-compose up -d
+# 3. Start the stack
+docker compose up -d
 
-# Check status
-docker-compose ps
+# 4. Access Grafana
+open http://localhost:3030
+# Login: admin / <your GRAFANA_ADMIN_PASSWORD>
 ```
 
-## 📊 Service URLs
+### Verify
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| **Grafana** | http://localhost:3000 | Monitoring dashboards |
-| **Prometheus** | http://localhost:9090 | Metrics collection |
-| **Redis** | localhost:6379 | Shared cache |
+```bash
+# Check all services are healthy
+docker compose ps
 
-## 🗃️ Redis Database Allocation
+# Prometheus targets
+open http://localhost:9090/targets
 
-| Database | Purpose | Used By |
-|----------|---------|---------|
-| **0** | MindsDB cache | xplaincrypto-mindsdb |
-| **1** | User sessions | xplaincrypto-user-database |
-| **2** | FastAPI operations | xplaincrypto-fastapi |
-| **3** | n8n workflows | xplaincrypto-n8n |
-| **4-15** | Reserved | Future services |
-
-## 🔑 Secrets Management
-
-All API keys are centrally managed in `./secrets/`:
-
-- `coinmarketcap_api_key.txt`
-- `dune_api_key.txt` (Sim API key)
-- `openai_api_key.txt`
-- `timegpt_api_key.txt`
-- `anthropic_api_key.txt`
-- `whale_alerts_api_key.txt`
-- `redis_password.txt`
-- `grafana_admin_password.txt`
-
-## 🌐 Network Architecture
-
-This repository creates the **`xplaincrypto_network`** that all other repositories connect to:
-
-```yaml
-# Other repos connect like this:
-networks:
-  default:
-    name: xplaincrypto_network
-    external: true
+# AlertManager status
+open http://localhost:9093
 ```
 
-## 🏗️ Repository Dependencies
+## Railway Deployment
 
-This infrastructure must be deployed **first** before other repositories:
+Each service deploys as a separate Railway service within the same project. See `railway/` directory for service configs.
 
-1. **xplaincrypto-infra** ← Deploy first (this repo)
-2. **xplaincrypto-mindsdb** ← Connects to this network
-3. **xplaincrypto-user-database** ← Connects to this network
-4. **xplaincrypto-fastapi** ← Connects to this network
+```bash
+# Install Railway CLI
+npm install -g @railway/cli
 
-## User Database Integration
-The user database (user_data on port 5433) is now fully deployed from this infra repo, including PgAdmin (port 8081), exporter (port 9188), and backups. DDL/scripts/config are managed in xplaincrypto-database repo.
+# Login and link to project
+railway login
+railway link
 
-To deploy/update user DB:
-docker compose up -d postgres-users pgadmin-users postgres-exporter-users backup-users
+# Deploy each service
+railway up --service prometheus
+railway up --service grafana
+railway up --service loki
+railway up --service log-relay
+railway up --service alertmanager
+railway up --service postgres-exporter
+railway up --service redis-exporter
+```
 
-Access:
-- PostgreSQL: localhost:5433 (user: xplaincrypto)
-- PgAdmin: http://localhost:8081 (admin@xplaincrypto.com / password from secrets)
+### Railway Log Drain Setup
 
----
-**Repository**: https://github.com/Gerard161-Site/xplaincrypto-infra  
-**Part of**: XplainCrypto Platform 
+After deploying the log-relay service:
 
+1. Get the log-relay public URL from Railway dashboard
+2. Go to Railway Project Settings → Log Drains
+3. Add HTTP Drain with the log-relay URL + `/drain` path
+4. Set the shared secret header
+
+## Dashboards
+
+| Dashboard | Description |
+|-----------|-------------|
+| Platform Overview | Service health matrix, active alerts, error count |
+| Database Health | PostgreSQL connections, cache hit ratio, dead tuples |
+| Redis & Queues | Memory usage, ops/sec, evicted keys, client count |
+| Agent Performance | Heartbeat success rates, execution stats (Phase 2) |
+| Workspace Worker | Task queue depth, throughput, errors (Phase 2) |
+| Logs Explorer | Filterable log viewer with volume charts |
+
+## Alert Routing
+
+Alerts flow: Prometheus → AlertManager → Backend API webhook → Agent self-healing
+
+| Severity | Group Wait | Repeat | Action |
+|----------|-----------|--------|--------|
+| Critical | 10s | 1h | Triggers self-healing agent heartbeat |
+| Warning | 60s | 4h | Surfaces in Activity Command Centre |
+| Info | 5m | 12h | Logged only |
+
+## File Structure
+
+```
+automatos-monitoring/
+├── docker-compose.yml              # Local development
+├── .env.example
+├── services/log-relay/             # Railway log drain → Loki
+├── monitoring/
+│   ├── prometheus/                 # Scrape config + alert rules
+│   ├── grafana/                    # Provisioning + dashboards
+│   ├── loki/                       # Log storage config
+│   └── alertmanager/               # Alert routing
+├── railway/                        # Railway service configs
+└── scripts/                        # Setup & health checks
+```

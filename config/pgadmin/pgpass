@@ -1,4 +1,0 @@
-# PgAdmin Password File for All DBs
-postgres-crypto:5432:*:mindsdb:$(cat /opt/secrets/xplaincrypto/postgres_crypto_password.txt)
-postgres-users:5432:*:xplaincrypto:$(cat /opt/secrets/xplaincrypto/postgres_users_password.txt)
-postgres-fastapi:5432:*:fastapi:$(cat /opt/secrets/xplaincrypto/postgres_fastapi_password.txt) 
