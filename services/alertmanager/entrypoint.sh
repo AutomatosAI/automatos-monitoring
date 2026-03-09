@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+# Fix Railway volume permissions (mounted as root, AlertManager runs as nobody)
+chown -R nobody:nobody /alertmanager
+
 # Write the ingest token from env var to file (AlertManager reads credentials from file)
 mkdir -p /etc/alertmanager/secrets
 if [ -n "${ALERT_INGEST_TOKEN:-}" ]; then
@@ -10,6 +13,6 @@ else
     echo -n "not-configured" > /etc/alertmanager/secrets/ingest-token
 fi
 
-exec /bin/alertmanager \
+exec su nobody -s /bin/sh -c '/bin/alertmanager \
     --config.file=/etc/alertmanager/alertmanager.yml \
-    --storage.path=/alertmanager
+    --storage.path=/alertmanager'

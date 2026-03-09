@@ -1,8 +1,11 @@
 FROM grafana/loki:2.9.4
 
+USER root
+
 COPY loki-config.yaml /etc/loki/config.yaml
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 3100
 
-ENTRYPOINT ["/usr/bin/loki"]
-CMD ["-config.file=/etc/loki/config.yaml"]
+ENTRYPOINT ["/bin/sh", "/entrypoint.sh"]
