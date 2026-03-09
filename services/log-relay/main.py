@@ -214,6 +214,18 @@ async def handle_health(request: web.Request) -> web.Response:
     })
 
 
+async def handle_root(request: web.Request) -> web.Response:
+    """Root handler — Railway log drain sends GET to verify endpoint."""
+    return web.json_response({
+        "service": "automatos-log-relay",
+        "endpoints": {
+            "drain": "POST /drain",
+            "push": "POST /push",
+            "health": "GET /health",
+        },
+    })
+
+
 async def periodic_flush(app: web.Application):
     """Background task to flush buffer periodically."""
     import asyncio
@@ -239,6 +251,7 @@ async def on_cleanup(app: web.Application):
 
 def create_app() -> web.Application:
     app = web.Application()
+    app.router.add_get("/", handle_root)
     app.router.add_post("/drain", handle_railway_drain)
     app.router.add_post("/push", handle_direct_push)
     app.router.add_get("/health", handle_health)
