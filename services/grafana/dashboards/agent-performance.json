@@ -1,7 +1,7 @@
 {
   "uid": "agent-performance",
   "title": "Agent Performance",
-  "description": "Agent heartbeat and autonomous check monitoring (Phase 2)",
+  "description": "Agent heartbeat and autonomous check monitoring ",
   "tags": ["automatos", "agents", "heartbeat"],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -40,7 +40,7 @@
   },
   "panels": [
     {
-      "title": "Phase 2 Notice",
+      "title": "Agent Metrics",
       "type": "row",
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
@@ -54,7 +54,7 @@
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 1 },
       "options": {
         "mode": "markdown",
-        "content": "## Placeholder Dashboard\n\nThis dashboard requires custom Prometheus metrics from the FastAPI `/metrics` endpoint, which will be implemented in **Phase 2**.\n\nThe agent heartbeat system performs periodic autonomous checks. Once the `/metrics` endpoint exposes `automatos_agent_*` metrics, these panels will populate automatically.\n\n**Required metrics:** `automatos_agent_heartbeat_total`, `automatos_agent_heartbeat_duration_seconds`, `automatos_agent_heartbeat_errors_total`, `automatos_agent_token_usage_total`",
+        "content": "## Placeholder Dashboard\n\nThis dashboard requires custom Prometheus metrics from the FastAPI `/metrics` endpoint, which will be implemented in **custom metrics**.\n\nThe agent heartbeat system performs periodic autonomous checks. Once the `/metrics` endpoint exposes `automatos_agent_*` metrics, these panels will populate automatically.\n\n**Required metrics:** `automatos_agent_heartbeat_total`, `automatos_agent_heartbeat_duration_seconds`, `automatos_agent_heartbeat_errors_total`, `automatos_agent_token_usage_total`",
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false }
       }
     },
@@ -86,7 +86,7 @@
           "min": 0,
           "max": 1,
           "unit": "percentunit",
-          "noValue": "Awaiting Phase 2",
+          "noValue": "Awaiting backend deploy",
           "mappings": []
         },
         "overrides": []
@@ -126,7 +126,7 @@
             ]
           },
           "unit": "short",
-          "noValue": "Awaiting Phase 2",
+          "noValue": "Awaiting backend deploy",
           "mappings": []
         },
         "overrides": []
@@ -170,7 +170,7 @@
             ]
           },
           "unit": "s",
-          "noValue": "Awaiting Phase 2",
+          "noValue": "Awaiting backend deploy",
           "mappings": []
         },
         "overrides": []
@@ -214,7 +214,7 @@
             ]
           },
           "unit": "short",
-          "noValue": "Awaiting Phase 2",
+          "noValue": "Awaiting backend deploy",
           "mappings": []
         },
         "overrides": []
@@ -241,7 +241,7 @@
       ]
     },
     {
-      "title": "Heartbeat Over Time (Phase 2)",
+      "title": "Heartbeat Over Time ",
       "type": "row",
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
@@ -285,7 +285,7 @@
             ]
           },
           "unit": "ops",
-          "noValue": "Awaiting Phase 2 metrics",
+          "noValue": "Awaiting backend deploy",
           "mappings": []
         },
         "overrides": []
@@ -344,7 +344,7 @@
             ]
           },
           "unit": "s",
-          "noValue": "Awaiting Phase 2 metrics",
+          "noValue": "Awaiting backend deploy",
           "mappings": []
         },
         "overrides": []

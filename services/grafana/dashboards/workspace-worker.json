@@ -1,7 +1,7 @@
 {
   "uid": "workspace-worker",
   "title": "Workspace Worker",
-  "description": "Workspace worker task queue consumer monitoring (Phase 2)",
+  "description": "Workspace worker task queue consumer monitoring ",
   "tags": ["automatos", "worker", "tasks"],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -40,7 +40,7 @@
   },
   "panels": [
     {
-      "title": "Phase 2 Notice",
+      "title": "Worker Metrics",
       "type": "row",
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
@@ -84,7 +84,7 @@
             ]
           },
           "unit": "short",
-          "noValue": "Awaiting Phase 2",
+          "noValue": "Awaiting backend deploy",
           "mappings": []
         },
         "overrides": []
@@ -128,7 +128,7 @@
             ]
           },
           "unit": "short",
-          "noValue": "Awaiting Phase 2",
+          "noValue": "Awaiting backend deploy",
           "mappings": []
         },
         "overrides": []
@@ -172,7 +172,7 @@
             ]
           },
           "unit": "s",
-          "noValue": "Awaiting Phase 2",
+          "noValue": "Awaiting backend deploy",
           "mappings": []
         },
         "overrides": []
@@ -216,7 +216,7 @@
             ]
           },
           "unit": "percentunit",
-          "noValue": "Awaiting Phase 2",
+          "noValue": "Awaiting backend deploy",
           "mappings": []
         },
         "overrides": []
@@ -243,7 +243,7 @@
       ]
     },
     {
-      "title": "Trends (Phase 2)",
+      "title": "Trends ",
       "type": "row",
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
@@ -287,7 +287,7 @@
             ]
           },
           "unit": "ops",
-          "noValue": "Awaiting Phase 2 metrics",
+          "noValue": "Awaiting backend deploy",
           "mappings": []
         },
         "overrides": []
@@ -347,7 +347,7 @@
             ]
           },
           "unit": "short",
-          "noValue": "Awaiting Phase 2 metrics",
+          "noValue": "Awaiting backend deploy",
           "mappings": []
         },
         "overrides": []
