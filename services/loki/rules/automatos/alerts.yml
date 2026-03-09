@@ -1,0 +1,199 @@
+# LogQL Alert Rules — Phase 2 Structured Observability
+# These fire into AlertManager via Loki's ruler component.
+# Requires structured JSON log lines from log-relay v2.
+
+groups:
+  # ─────────────────────────────────────────────
+  # Error Detection
+  # ─────────────────────────────────────────────
+  - name: error-detection
+    interval: 1m
+    rules:
+      - alert: ErrorSpike
+        expr: |
+          sum(count_over_time({level="error"} [5m])) by (service) > 50
+        for: 2m
+        labels:
+          severity: warning
+          source: loki-ruler
+        annotations:
+          summary: "Error spike in {{ $labels.service }}"
+          description: "{{ $labels.service }} logged >50 errors in 5 minutes. Check Grafana Logs Explorer filtered by service={{ $labels.service }}, level=error."
+
+      - alert: CriticalErrorBurst
+        expr: |
+          sum(count_over_time({level="error"} | json | err != "" [2m])) by (service) > 20
+        for: 1m
+        labels:
+          severity: critical
+          source: loki-ruler
+        annotations:
+          summary: "Critical error burst in {{ $labels.service }}"
+          description: "{{ $labels.service }} threw >20 exceptions with stack traces in 2 minutes. Immediate investigation required."
+
+      - alert: RepeatedSameError
+        expr: |
+          sum(count_over_time({level="error"} | json | err_fp != "" [10m])) by (service) > 15
+        for: 5m
+        labels:
+          severity: warning
+          source: loki-ruler
+        annotations:
+          summary: "Repeated error pattern in {{ $labels.service }}"
+          description: "Same error fingerprint appearing >15 times in 10 minutes in {{ $labels.service }}. Likely a systematic bug, not a transient failure."
+
+  # ─────────────────────────────────────────────
+  # Security Detection
+  # ─────────────────────────────────────────────
+  - name: security-detection
+    interval: 1m
+    rules:
+      - alert: AuthFailureSpike
+        expr: |
+          sum(count_over_time({service="automatos-backend"} |~ "(?i)(401|unauthorized|invalid token|auth.*fail)" [5m])) > 20
+        for: 2m
+        labels:
+          severity: warning
+          source: loki-ruler
+        annotations:
+          summary: "Authentication failure spike"
+          description: ">20 auth failures in 5 minutes. Possible brute force attack, expired tokens, or misconfigured API key."
+
+      - alert: TokenAbusePattern
+        expr: |
+          sum(count_over_time({service="automatos-backend"} | json | ctx_path=~"/api/chat.*" [1h])) by (service) > 5000
+        for: 5m
+        labels:
+          severity: warning
+          source: loki-ruler
+        annotations:
+          summary: "Excessive chat API usage detected"
+          description: ">5000 chat requests in 1 hour. Check per-workspace breakdown in Grafana Logs Explorer for abuse patterns."
+
+      - alert: SuspiciousAPIPattern
+        expr: |
+          sum(count_over_time({service="automatos-backend"} |~ "(?i)(sql.*inject|script>|<script|\\.\\.\\./|/etc/passwd)" [5m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          source: loki-ruler
+        annotations:
+          summary: "Suspicious API input pattern detected"
+          description: "Potential injection attempt detected in backend logs. Review immediately."
+
+  # ─────────────────────────────────────────────
+  # Infrastructure Log Patterns
+  # ─────────────────────────────────────────────
+  - name: infrastructure-logs
+    interval: 1m
+    rules:
+      - alert: OOMDetected
+        expr: |
+          count_over_time({service=~".+"} |~ "(?i)(oom|out of memory|killed|memory allocation failed)" [5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          source: loki-ruler
+        annotations:
+          summary: "OOM detected in {{ $labels.service }}"
+          description: "Out-of-memory condition detected in service logs. Service may need more memory or has a memory leak."
+
+      - alert: DatabaseConnectionExhaustion
+        expr: |
+          sum(count_over_time({service=~".+"} |~ "(?i)(connection pool exhausted|too many connections|connection refused.*5432|remaining connection slots)" [5m])) by (service) > 3
+        for: 2m
+        labels:
+          severity: critical
+          source: loki-ruler
+        annotations:
+          summary: "Database connection exhaustion in {{ $labels.service }}"
+          description: "{{ $labels.service }} is failing to acquire database connections. Check pg_stat_activity for idle connections and pool settings."
+
+      - alert: RedisConnectionFailure
+        expr: |
+          sum(count_over_time({service=~".+"} |~ "(?i)(redis.*connection refused|redis.*timeout|ECONNREFUSED.*6379|redis.*unavailable)" [5m])) by (service) > 3
+        for: 2m
+        labels:
+          severity: critical
+          source: loki-ruler
+        annotations:
+          summary: "Redis connection failures in {{ $labels.service }}"
+          description: "{{ $labels.service }} cannot connect to Redis. Check Redis health, memory, and max clients."
+
+      - alert: DiskSpaceWarning
+        expr: |
+          count_over_time({service=~".+"} |~ "(?i)(no space left|disk full|write.*ENOSPC)" [5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          source: loki-ruler
+        annotations:
+          summary: "Disk space exhaustion in {{ $labels.service }}"
+          description: "Service logging disk space errors. Check Railway volume usage."
+
+  # ─────────────────────────────────────────────
+  # Performance & Degradation
+  # ─────────────────────────────────────────────
+  - name: performance-detection
+    interval: 2m
+    rules:
+      - alert: SlowRequestsDetected
+        expr: |
+          sum(count_over_time({service="automatos-backend"} | json | dur > 5000 [10m])) by (service) > 10
+        for: 5m
+        labels:
+          severity: warning
+          source: loki-ruler
+        annotations:
+          summary: "Slow requests in {{ $labels.service }}"
+          description: ">10 requests took >5s in the last 10 minutes. Check the slowest endpoints in Grafana."
+
+      - alert: LLMLatencySpike
+        expr: |
+          sum(count_over_time({service="automatos-backend"} | json | dur > 30000 | ctx_path=~"/api/chat.*" [10m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          source: loki-ruler
+        annotations:
+          summary: "LLM latency spike detected"
+          description: ">5 chat requests took >30s in 10 minutes. Provider may be degraded or prompts may be too large."
+
+      - alert: WorkerTaskBacklog
+        expr: |
+          sum(count_over_time({service="agent-opt-worker"} |~ "(?i)(queue.*full|backlog|task.*timeout|max.*retries)" [10m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          source: loki-ruler
+        annotations:
+          summary: "Worker task backlog detected"
+          description: "Worker logging backlog/timeout messages. Tasks may be processing too slowly or queue is overloaded."
+
+  # ─────────────────────────────────────────────
+  # Agent Health
+  # ─────────────────────────────────────────────
+  - name: agent-health
+    interval: 2m
+    rules:
+      - alert: AgentHeartbeatFailures
+        expr: |
+          sum(count_over_time({service="automatos-backend"} |~ "(?i)(heartbeat.*fail|heartbeat.*error|heartbeat.*timeout)" [15m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          source: loki-ruler
+        annotations:
+          summary: "Agent heartbeat failures detected"
+          description: "Multiple agent heartbeat failures in 15 minutes. Check agent connectivity and tool availability."
+
+      - alert: AgentLoopDetected
+        expr: |
+          sum(count_over_time({service="automatos-backend"} | json | ctx_aid != "" | ctx_path=~"/api/tools/.*" [5m])) by (ctx_aid) > 50
+        for: 3m
+        labels:
+          severity: warning
+          source: loki-ruler
+        annotations:
+          summary: "Possible agent loop: {{ $labels.ctx_aid }}"
+          description: "Agent {{ $labels.ctx_aid }} made >50 tool calls in 5 minutes. May be stuck in a retry loop."

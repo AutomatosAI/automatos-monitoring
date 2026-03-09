@@ -1,10 +1,15 @@
 """
-Log Relay Service — Railway Log Drain → Loki
+Log Relay Service — Structured Log Gateway → Loki
 
-Receives HTTP log drain webhooks from Railway, transforms them into
-Loki's push format, and forwards them to the Loki instance.
+Phase 2: Accepts structured log entries with context, error fingerprints,
+and metrics. Promotes bounded fields to Loki labels for fast querying.
+Formats log lines as structured JSON for LogQL parsing.
 
-Also accepts direct log pushes from services that want structured logging.
+Endpoints:
+  POST /push   — Direct push from services (structured)
+  POST /drain  — Railway log drain webhooks (raw)
+  GET  /health — Health check
+  GET  /        — Service info
 """
 
 import json
@@ -27,7 +32,15 @@ DROP_PATTERNS = frozenset([
     "GET /-/healthy",
     "GET /ready",
     "GET /loki/api/v1/ready",
+    "GET /metrics",
 ])
+
+# Fields promoted to Loki labels (bounded cardinality only)
+LABEL_FIELDS = frozenset({"service", "level", "environment", "source", "module", "method", "error_type"})
+
+# Max cardinality guard — if a label has too many unique values, stop promoting it
+_label_cardinality: dict[str, set] = defaultdict(set)
+MAX_LABEL_VALUES = 50
 
 # Buffered log entries waiting to be flushed to Loki
 _buffer: list[dict] = []
@@ -51,6 +64,91 @@ def _parse_severity(raw: str) -> str:
     return mapping.get(raw.lower(), "info")
 
 
+def _truncate_module(module: str) -> str:
+    """Keep only the top-level module name to limit cardinality.
+
+    'orchestrator.consumers.chatbot.auto' → 'consumers'
+    'core.monitoring.automatos_metrics' → 'monitoring'
+    """
+    parts = module.split(".")
+    # Skip 'orchestrator' prefix, take the domain module
+    if len(parts) > 1 and parts[0] in ("orchestrator", "core", "api"):
+        return parts[1] if len(parts) > 1 else parts[0]
+    return parts[0]
+
+
+def _should_promote_label(key: str, value: str) -> bool:
+    """Guard against cardinality explosion."""
+    if key not in LABEL_FIELDS:
+        return False
+    _label_cardinality[key].add(value)
+    return len(_label_cardinality[key]) <= MAX_LABEL_VALUES
+
+
+def _build_structured_log_line(entry: dict) -> str:
+    """Format a structured JSON log line for Loki.
+
+    Compact format optimized for LogQL json parsing:
+    {"msg":"...", "ctx":{...}, "err":{...}, "dur":123}
+    """
+    line = {"msg": entry.get("message", "")}
+
+    # Context — shortened keys for log volume efficiency
+    ctx = entry.get("context", {})
+    if ctx:
+        compact_ctx = {}
+        key_map = {
+            "request_id": "rid",
+            "correlation_id": "cid",
+            "workspace_id": "ws",
+            "user_id": "uid",
+            "agent_id": "aid",
+            "workflow_id": "wid",
+            "run_id": "run",
+            "tenant_id": "tid",
+            "path": "path",
+            "function": "fn",
+            "lineno": "line",
+            "logger": "log",
+            "task_id": "task",
+            "model": "model",
+        }
+        for full_key, short_key in key_map.items():
+            val = ctx.get(full_key)
+            if val:
+                compact_ctx[short_key] = val
+        if compact_ctx:
+            line["ctx"] = compact_ctx
+
+    # Error info
+    error = entry.get("error", {})
+    if error:
+        compact_err = {}
+        if error.get("type"):
+            compact_err["type"] = error["type"]
+        if error.get("fingerprint"):
+            compact_err["fp"] = error["fingerprint"]
+        if error.get("stack_hash"):
+            compact_err["sh"] = error["stack_hash"]
+        if error.get("message"):
+            compact_err["msg"] = error["message"][:200]
+        if error.get("traceback"):
+            compact_err["tb"] = error["traceback"][:2000]
+        if compact_err:
+            line["err"] = compact_err
+
+    # Duration
+    metrics = entry.get("metrics", {})
+    if metrics.get("duration_ms"):
+        line["dur"] = metrics["duration_ms"]
+    if metrics.get("tokens_in"):
+        line["tok_in"] = metrics["tokens_in"]
+    if metrics.get("tokens_out"):
+        line["tok_out"] = metrics["tokens_out"]
+
+    return json.dumps(line, separators=(",", ":"))
+
+
 def _build_loki_payload(entries: list[dict]) -> dict:
     """Group entries by label set and build Loki push payload."""
     streams: dict[str, list] = defaultdict(list)
@@ -59,7 +157,7 @@ def _build_loki_payload(entries: list[dict]) -> dict:
         labels = entry.get("labels", {})
         label_key = json.dumps(labels, sort_keys=True)
         ts_ns = str(int(entry.get("timestamp", time.time()) * 1e9))
-        streams[label_key].append([ts_ns, entry.get("message", "")])
+        streams[label_key].append([ts_ns, entry.get("log_line", entry.get("message", ""))])
 
     return {
         "streams": [
@@ -108,7 +206,6 @@ async def handle_railway_drain(request: web.Request) -> web.Response:
     Railway sends JSON arrays of log entries:
     [{"message": "...", "severity": "info", "service": "backend", ...}]
     """
-    # Validate shared secret
     secret = request.headers.get("X-Railway-Secret", "")
     if ENVIRONMENT == "production" and secret != LOG_RELAY_SECRET:
         return web.Response(status=401, text="Unauthorized")
@@ -118,7 +215,6 @@ async def handle_railway_drain(request: web.Request) -> web.Response:
     except json.JSONDecodeError:
         return web.Response(status=400, text="Invalid JSON")
 
-    # Railway may send a single object or an array
     entries = body if isinstance(body, list) else [body]
 
     for entry in entries:
@@ -138,7 +234,7 @@ async def handle_railway_drain(request: web.Request) -> web.Response:
                 "environment": ENVIRONMENT,
                 "source": "railway-drain",
             },
-            "message": message,
+            "log_line": json.dumps({"msg": message}, separators=(",", ":")),
             "timestamp": time.time(),
         })
 
@@ -149,9 +245,20 @@ async def handle_railway_drain(request: web.Request) -> web.Response:
 
 
 async def handle_direct_push(request: web.Request) -> web.Response:
-    """Handle direct log pushes from services.
+    """Handle structured log pushes from services.
 
-    Expects JSON:
+    Phase 2 format:
+    {
+      "service": "automatos-backend",
+      "level": "error",
+      "message": "Something failed",
+      "timestamp": 1741500000.123,
+      "context": {"request_id": "...", "workspace_id": "...", ...},
+      "error": {"type": "ValueError", "fingerprint": "abc123", ...},
+      "metrics": {"duration_ms": 1523}
+    }
+
+    Also supports Phase 1 format (backwards compatible):
     {
       "service": "automatos-backend",
       "level": "error",
@@ -174,8 +281,8 @@ async def handle_direct_push(request: web.Request) -> web.Response:
 
         service = entry.get("service", "unknown")
         level = _parse_severity(entry.get("level", "info"))
-        extra = entry.get("extra", {})
 
+        # Build Loki labels — only bounded fields
         labels = {
             "job": f"automatos-{service}",
             "service": service,
@@ -184,19 +291,45 @@ async def handle_direct_push(request: web.Request) -> web.Response:
             "source": "direct-push",
         }
 
-        # Add selected extra fields as labels (keep cardinality low)
-        if "module" in extra:
-            labels["module"] = extra["module"]
+        # Phase 2: structured context with label promotion
+        context = entry.get("context", {})
+        extra = entry.get("extra", {})
 
-        # Include full extra in the log line
-        log_line = message
-        if extra:
+        # Merge extra into context for backwards compat
+        if extra and not context:
+            context = extra
+
+        # Promote bounded fields to labels
+        module = context.get("module", extra.get("module", ""))
+        if module:
+            truncated = _truncate_module(module)
+            if _should_promote_label("module", truncated):
+                labels["module"] = truncated
+
+        method = context.get("method", "")
+        if method and _should_promote_label("method", method):
+            labels["method"] = method
+
+        # Error type as label (bounded — exception class names)
+        error = entry.get("error", {})
+        error_type = error.get("type", "")
+        if error_type and _should_promote_label("error_type", error_type):
+            labels["error_type"] = error_type
+
+        # Build structured log line
+        if context or error or entry.get("metrics"):
+            # Phase 2: structured JSON log line
+            log_line = _build_structured_log_line(entry)
+        elif extra:
+            # Phase 1 compat: message | extra JSON
             log_line = f"{message} | {json.dumps(extra)}"
+        else:
+            log_line = json.dumps({"msg": message}, separators=(",", ":"))
 
         _buffer.append({
             "labels": labels,
-            "message": log_line,
-            "timestamp": time.time(),
+            "log_line": log_line,
+            "timestamp": entry.get("timestamp", time.time()),
         })
 
     if len(_buffer) >= MAX_BATCH_SIZE:
@@ -209,20 +342,25 @@ async def handle_health(request: web.Request) -> web.Response:
     return web.json_response({
         "status": "healthy",
         "service": "log-relay",
+        "version": "2.0.0",
         "buffer_size": len(_buffer),
         "loki_url": LOKI_PUSH_URL,
+        "label_cardinality": {k: len(v) for k, v in _label_cardinality.items()},
     })
 
 
 async def handle_root(request: web.Request) -> web.Response:
-    """Root handler — Railway log drain sends GET to verify endpoint."""
+    """Root handler — service info."""
     return web.json_response({
         "service": "automatos-log-relay",
+        "version": "2.0.0",
+        "phase": "Phase 2 — Structured Observability",
         "endpoints": {
-            "drain": "POST /drain",
-            "push": "POST /push",
-            "health": "GET /health",
+            "drain": "POST /drain — Railway log drain webhooks",
+            "push": "POST /push — Structured log push from services",
+            "health": "GET /health — Health check with buffer stats",
         },
+        "labels_promoted": sorted(LABEL_FIELDS),
     })
 
 
@@ -263,6 +401,7 @@ def create_app() -> web.Application:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8080"))
     app = create_app()
-    print(f"Log relay starting on port {port}")
+    print(f"Log relay v2.0 starting on port {port}")
     print(f"Loki push URL: {LOKI_PUSH_URL}")
+    print(f"Labels promoted: {sorted(LABEL_FIELDS)}")
     web.run_app(app, host="0.0.0.0", port=port)
