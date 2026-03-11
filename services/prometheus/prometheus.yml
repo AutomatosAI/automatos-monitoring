@@ -19,25 +19,45 @@ scrape_configs:
   # Automatos Application Services
   # ─────────────────────────────────────────────
 
-  # Backend API health
+  # Backend API — Prometheus metrics
   - job_name: "automatos-backend"
-    metrics_path: /health
-    scrape_interval: 30s
+    metrics_path: /metrics
+    scrape_interval: 15s
     static_configs:
       - targets: ["backend:8000"]
         labels:
           service: "backend"
           component: "api"
 
-  # Workspace Worker health
+  # Workspace Worker — Prometheus metrics
   - job_name: "automatos-workspace-worker"
-    metrics_path: /health
-    scrape_interval: 30s
+    metrics_path: /metrics
+    scrape_interval: 15s
     static_configs:
       - targets: ["workspace-worker:8081"]
         labels:
           service: "workspace-worker"
           component: "worker"
+
+  # Agent Optimization Worker — Prometheus metrics
+  - job_name: "automatos-agent-worker"
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["agent-opt-worker:8080"]
+        labels:
+          service: "agent-opt-worker"
+          component: "worker"
+
+  # Mem0 Server — Prometheus metrics
+  - job_name: "automatos-mem0"
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["mem0-server:8765"]
+        labels:
+          service: "mem0-server"
+          component: "memory"
 
   # ─────────────────────────────────────────────
   # Database Exporters

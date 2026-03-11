@@ -47,8 +47,30 @@ scrape_configs:
     static_configs:
       - targets: ["agent-opt-worker.railway.internal:8080"]
         labels:
-          service: "agent-worker"
+          service: "agent-opt-worker"
           component: "worker"
+
+  # Workspace Worker — Prometheus metrics (aiohttp on port 8081)
+  - job_name: "automatos-workspace-worker"
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ["agent-workspace-worker.railway.internal:8081"]
+        labels:
+          service: "workspace-worker"
+          component: "worker"
+
+  # Mem0 Server — Prometheus metrics (FastAPI on port 8765)
+  - job_name: "automatos-mem0"
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ["automatos-ai-mem0-Server.railway.internal:8765"]
+        labels:
+          service: "mem0-server"
+          component: "memory"
 
   # ─────────────────────────────────────────────
   # Database Exporters
