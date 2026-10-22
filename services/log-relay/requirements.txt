@@ -1,1 +1,2 @@
+certifi>=2026.10.19  # eMudhra/emSign CA compromise (Oct 2026) — floor below this trusts broken CAs
 aiohttp==3.9.3
